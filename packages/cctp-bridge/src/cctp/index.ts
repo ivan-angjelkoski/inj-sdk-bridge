@@ -220,6 +220,16 @@ export class CctpBridge {
     });
   }
 
+  async getAddress() {
+    const [address] = await this.walletClient.getAddresses();
+
+    if (!address) {
+      throw new Error("No address found");
+    }
+
+    return address;
+  }
+
   async getSrcSmartAccountAddress() {
     const bundlerClient = await this.getSmartAccount(this.srcChain);
     return bundlerClient.address;

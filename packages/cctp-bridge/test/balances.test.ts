@@ -16,7 +16,7 @@ describe("CCTP Bridge Balances", () => {
   beforeAll(() => {
     if (!privateKey) {
       throw new Error(
-        "PRIVATE_KEY environment variable is required. Set it in a .env file.",
+        "PRIVATE_KEY environment variable is required. Set it in a .env file."
       );
     }
 
@@ -45,6 +45,7 @@ describe("CCTP Bridge Balances", () => {
       });
 
       const balances = await bridge.getUSDCBalances();
+      const address = await bridge.getAddress();
 
       // Verify structure
       expect(balances).toBeDefined();
@@ -74,6 +75,7 @@ describe("CCTP Bridge Balances", () => {
       expect(typeof balances.destNativeBalance.formatted).toBe("string");
 
       // Log balances for visibility
+      console.log(`\nSource Smart Account Address: ${address}`);
       console.log("\nAccount Balances:");
       console.log(`Source Chain (${optimismSepolia.name}):`);
       console.log(`  USDC: ${balances.srcUsdcBalance.formatted}`);
@@ -93,6 +95,7 @@ describe("CCTP Bridge Balances", () => {
       });
 
       const balances = await bridge.getUSDCBalances("smart-account");
+      const srcSmartAccountAddress = await bridge.getSrcSmartAccountAddress();
 
       // Verify structure
       expect(balances).toBeDefined();
@@ -122,6 +125,7 @@ describe("CCTP Bridge Balances", () => {
       expect(typeof balances.destNativeBalance.formatted).toBe("string");
 
       // Log balances for visibility
+      console.log(`\nSource Smart Account Address: ${srcSmartAccountAddress}`);
       console.log("\nSmart Account Balances:");
       console.log(`Source Chain (${optimismSepolia.name}):`);
       console.log(`  USDC: ${balances.srcUsdcBalance.formatted}`);
