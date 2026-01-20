@@ -95,11 +95,36 @@ export class CctpBridge {
     });
   }
 
-  async approveUSDC(amount: string) {
+  async approveUSDC(amount: string): Promise<
+    | {
+        status: "success";
+        transactionHash: `0x${string}`;
+      }
+    | {
+        status: "already-approved";
+        transactionHash: null;
+      }
+  > {
     await this.safeSwitchChain(this.srcChain);
 
     const srcConfig = this.getChainConfig(this.srcChain);
     const publicClient = await this.getPublicClient(this.srcChain);
+
+    const srcAddress = this.walletClient.account.address;
+
+    const allowance = await publicClient.readContract({
+      abi: usdcAbi,
+      address: srcConfig.usdcAddress,
+      functionName: "allowance",
+      args: [srcAddress, srcConfig.tokenMessengerV2],
+    });
+
+    if (allowance > parseUnits(amount.toString(), 6)) {
+      return {
+        status: "already-approved",
+        transactionHash: null,
+      };
+    }
 
     const hash = await this.walletClient.writeContract({
       abi: usdcAbi,
@@ -108,7 +133,10 @@ export class CctpBridge {
       args: [srcConfig.tokenMessengerV2, parseUnits(amount.toString(), 6)],
     });
 
-    return await publicClient.waitForTransactionReceipt({ hash });
+    return {
+      status: "success",
+      transactionHash: hash,
+    };
   }
 
   async burnUSDC({
@@ -216,6 +244,23 @@ export class CctpBridge {
       });
     }
   }
+
+  // async getUSDCAllowance(address: `0x${string}`) {
+  //   const publicClient = await this.getPublicClient(this.srcChain);
+  //   const srcConfig = this.getChainConfig(this.srcChain);
+
+  //   const allowance = await publicClient.readContract({
+  //     abi: usdcAbi,
+  //     address: srcConfig.usdcAddress,
+  //     functionName: "allowance",
+  //     args: [address, srcConfig.tokenMessengerV2],
+  //   });
+
+  //   return {
+  //     value: allowance,
+  //     formatted: formatUnits(allowance, 6),
+  //   };
+  // }
 
   async getUSDCBalances(
     accountType: "external" | "smart-account" = "external"

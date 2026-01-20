@@ -19,7 +19,7 @@ describe("CCTP Bridge Flow", () => {
   beforeAll(() => {
     if (!privateKey) {
       throw new Error(
-        "PRIVATE_KEY environment variable is required. Set it in a .env file.",
+        "PRIVATE_KEY environment variable is required. Set it in a .env file."
       );
     }
 
@@ -69,8 +69,13 @@ describe("CCTP Bridge Flow", () => {
       // Step 1: Approve USDC
       console.log(`\nStep 1: Approving ${BRIDGE_AMOUNT} USDC...`);
       const approvalReceipt = await bridge.approveUSDC(BRIDGE_AMOUNT);
-      console.log(`Approval tx hash: ${approvalReceipt.transactionHash}`);
-      expect(approvalReceipt.status).toBe("success");
+      if (approvalReceipt.status === "already-approved") {
+        console.log("USDC already approved");
+      } else {
+        console.log(`Approval tx hash: ${approvalReceipt.transactionHash}`);
+      }
+
+      expect(approvalReceipt.status).oneOf(["success", "already-approved"]);
 
       // Wait 7 seconds before proceeding
       console.log("Waiting 7 seconds...");
