@@ -5,6 +5,7 @@ import {
   type Account,
   parseUnits,
   padHex,
+  formatUnits,
 } from "viem";
 
 import {
@@ -155,14 +156,14 @@ export class CctpBridge {
               data.messages[0] as {
                 message: `0x${string}`;
                 attestation: `0x${string}`;
-              }
+              },
             );
           } catch (error) {
             clearInterval(interval);
             reject(error);
           }
         }, 5000);
-      }
+      },
     );
   }
 
@@ -206,5 +207,63 @@ export class CctpBridge {
         account: this.walletClient.account,
       });
     }
+  }
+
+  async getUSDCBalances() {
+    const srcPublicClient = await this.getPublicClient(this.srcChain);
+    const destPublicClient = await this.getPublicClient(this.destChain);
+
+    const srcConfig = this.getChainConfig(this.srcChain);
+    const destConfig = this.getChainConfig(this.destChain);
+
+    const address = this.walletClient.account.address;
+
+    const [
+      srcUsdcBalance,
+      destUsdcBalance,
+      srcNativeBalance,
+      destNativeBalance,
+    ] = await Promise.all([
+      srcPublicClient.readContract({
+        abi: usdcAbi,
+        address: srcConfig.usdcAddress,
+        functionName: "balanceOf",
+        args: [address],
+      }),
+
+      destPublicClient.readContract({
+        abi: usdcAbi,
+        address: destConfig.usdcAddress,
+        functionName: "balanceOf",
+        args: [address],
+      }),
+
+      srcPublicClient.getBalance({
+        address: address,
+      }),
+
+      destPublicClient.getBalance({
+        address: address,
+      }),
+    ]);
+
+    return {
+      srcUsdcBalance: {
+        value: srcUsdcBalance,
+        formatted: formatUnits(srcUsdcBalance, 6),
+      },
+      destUsdcBalance: {
+        value: destUsdcBalance,
+        formatted: formatUnits(destUsdcBalance, 6),
+      },
+      srcNativeBalance: {
+        value: srcNativeBalance,
+        formatted: formatUnits(srcNativeBalance, 18),
+      },
+      destNativeBalance: {
+        value: destNativeBalance,
+        formatted: formatUnits(destNativeBalance, 18),
+      },
+    };
   }
 }
