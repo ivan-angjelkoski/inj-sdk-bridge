@@ -6,6 +6,7 @@ import {
   parseUnits,
   padHex,
   formatUnits,
+  type Call,
 } from "viem";
 
 import {
@@ -219,6 +220,65 @@ export class CctpBridge {
     });
   }
 
+  async getSrcSmartAccountAddress() {
+    const bundlerClient = await this.getBundlerClient(this.srcChain);
+    return bundlerClient.account.address;
+  }
+
+  async getDestSmartAccountAddress() {
+    const bundlerClient = await this.getBundlerClient(this.destChain);
+    return bundlerClient.account.address;
+  }
+
+  async approveAndBurnUSDCUsingSmartAccount(amount: string) {
+    const publicClient = await this.getPublicClient(this.srcChain);
+    const bundlerClient = await this.getBundlerClient(this.srcChain);
+
+    const smartAccountAddress = bundlerClient.account.address;
+
+    const allowance = await publicClient.readContract({
+      abi: usdcAbi,
+      address: this.getChainConfig(this.srcChain).usdcAddress,
+      functionName: "allowance",
+      args: [
+        smartAccountAddress,
+        this.getChainConfig(this.srcChain).tokenMessengerV2,
+      ],
+    });
+
+    const userHasEnoughAllowance = allowance > parseUnits(amount.toString(), 6);
+
+    const calls: Call[] = [];
+
+    if (!userHasEnoughAllowance) {
+      calls.push({
+        to: this.getChainConfig(this.srcChain).usdcAddress,
+        abi: usdcAbi,
+        functionName: "approve",
+        args: [
+          this.getChainConfig(this.srcChain).tokenMessengerV2,
+          parseUnits(amount.toString(), 6),
+        ],
+      });
+    }
+
+    calls.push({
+      to: this.getChainConfig(this.srcChain).tokenMessengerV2,
+      abi: tokenMessengerAbi,
+      functionName: "depositForBurn",
+      args: [
+        parseUnits(amount.toString(), 6),
+        this.getChainConfig(this.destChain).domain,
+      ],
+    });
+
+    const userOperation = await bundlerClient.sendUserOperation({
+      calls,
+    });
+
+    return userOperation;
+  }
+
   async safeSwitchChain(chain: Chain) {
     // Check if using a browser wallet (custom transport) by checking transport type
     const transportType = this.walletClient.transport?.type;
@@ -244,23 +304,6 @@ export class CctpBridge {
       });
     }
   }
-
-  // async getUSDCAllowance(address: `0x${string}`) {
-  //   const publicClient = await this.getPublicClient(this.srcChain);
-  //   const srcConfig = this.getChainConfig(this.srcChain);
-
-  //   const allowance = await publicClient.readContract({
-  //     abi: usdcAbi,
-  //     address: srcConfig.usdcAddress,
-  //     functionName: "allowance",
-  //     args: [address, srcConfig.tokenMessengerV2],
-  //   });
-
-  //   return {
-  //     value: allowance,
-  //     formatted: formatUnits(allowance, 6),
-  //   };
-  // }
 
   async getUSDCBalances(
     accountType: "external" | "smart-account" = "external"
