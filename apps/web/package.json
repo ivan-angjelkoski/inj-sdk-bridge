@@ -14,7 +14,8 @@
     "@inj-sdk/ui": "workspace:*",
     "next": "16.1.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "@inj-sdk/cctp-bridge": "workspace:*"
   },
   "devDependencies": {
     "@inj-sdk/eslint-config": "workspace:*",
