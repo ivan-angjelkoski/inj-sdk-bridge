@@ -1,3 +1,1 @@
-export const testing = () => {
-  console.log("testing");
-};
+export * from "./cctp/index";

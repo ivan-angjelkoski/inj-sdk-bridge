@@ -1,7 +1,6 @@
 import Image, { type ImageProps } from "next/image";
 import { Button } from "@inj-sdk/ui/button";
 import styles from "./page.module.css";
-import { testing } from "@inj-sdk/cctp-bridge";
 
 type Props = Omit<ImageProps, "src"> & {
   srcLight: string;
@@ -10,8 +9,6 @@ type Props = Omit<ImageProps, "src"> & {
 
 const ThemeImage = (props: Props) => {
   const { srcLight, srcDark, ...rest } = props;
-
-  testing();
 
   return (
     <>
