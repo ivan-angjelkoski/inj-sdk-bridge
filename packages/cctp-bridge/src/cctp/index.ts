@@ -15,6 +15,7 @@ import {
   messageTransmitterAbi,
   usdcAbi,
 } from "../constants";
+import { toOwner } from "permissionless";
 
 type WalletClientAccount = WalletClient<Transport, Chain, Account>;
 
@@ -65,15 +66,22 @@ export class CctpBridge {
     });
   }
 
-  async getLightSmartAccount(chain: Chain, rpcUrl?: string) {
+  async getSmartAccount(chain: Chain, rpcUrl?: string) {
     const { toLightSmartAccount } = await import("permissionless/accounts");
     const publicClient = await this.getPublicClient(chain, rpcUrl);
 
-    return toLightSmartAccount({
+    const owner = await toOwner({
       owner: this.walletClient,
-      version: "2.0.0",
-      client: publicClient,
+      address: this.walletClient.account.address,
     });
+
+    const smartAccount = await toLightSmartAccount({
+      owner,
+      client: publicClient,
+      version: "2.0.0",
+    });
+
+    return smartAccount;
   }
 
   async getBundlerClient(chain: Chain, rpcUrl?: string) {
@@ -82,7 +90,7 @@ export class CctpBridge {
 
     return createBundlerClient({
       transport: http(rpcUrl),
-      account: await this.getLightSmartAccount(chain, rpcUrl),
+      account: await this.getSmartAccount(chain, rpcUrl),
       chain: chain,
     });
   }
@@ -156,14 +164,14 @@ export class CctpBridge {
               data.messages[0] as {
                 message: `0x${string}`;
                 attestation: `0x${string}`;
-              },
+              }
             );
           } catch (error) {
             clearInterval(interval);
             reject(error);
           }
         }, 5000);
-      },
+      }
     );
   }
 
@@ -209,14 +217,21 @@ export class CctpBridge {
     }
   }
 
-  async getUSDCBalances() {
+  async getUSDCBalances(
+    accountType: "external" | "smart-account" = "external"
+  ) {
     const srcPublicClient = await this.getPublicClient(this.srcChain);
     const destPublicClient = await this.getPublicClient(this.destChain);
 
     const srcConfig = this.getChainConfig(this.srcChain);
     const destConfig = this.getChainConfig(this.destChain);
 
-    const address = this.walletClient.account.address;
+    const smartAccount = await this.getSmartAccount(this.srcChain);
+
+    const address =
+      accountType === "external"
+        ? this.walletClient.account.address
+        : smartAccount.address;
 
     const [
       srcUsdcBalance,

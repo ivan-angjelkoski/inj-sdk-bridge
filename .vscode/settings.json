@@ -3,6 +3,6 @@
     {
       "mode": "auto"
     }
-  ],
-  "explorer.excludeGitIgnore": true
+  ]
+  // "explorer.excludeGitIgnore": true
 }
