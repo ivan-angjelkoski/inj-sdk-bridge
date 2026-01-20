@@ -5,14 +5,15 @@ import {
   type Account,
   parseUnits,
   padHex,
+  custom,
 } from "viem";
 
 import {
-  domain,
+  CCTP_CONTRACTS,
+  type CctpContractAddresses,
   tokenMessengerAbi,
-  tokenMessengerAddress,
+  messageTransmitterAbi,
   usdcAbi,
-  usdcAddress,
 } from "../constants";
 
 type WalletClientAccount = WalletClient<Transport, Chain, Account>;
@@ -30,6 +31,14 @@ export class CctpBridge {
     this.srcChain = params.srcChain;
     this.destChain = params.destChain;
     this.walletClient = params.walletClient;
+  }
+
+  private getChainConfig(chain: Chain): CctpContractAddresses {
+    const config = CCTP_CONTRACTS[chain.id];
+    if (!config) {
+      throw new Error(`Unsupported chain: ${chain.name} (id: ${chain.id})`);
+    }
+    return config;
   }
 
   static async create(params: {
@@ -78,20 +87,17 @@ export class CctpBridge {
     });
   }
 
-  async approveUSDC(amount: bigint) {
-    this.safeSwitchChain(this.srcChain);
-    // approve 1 USDC
+  async approveUSDC(amount: string) {
+    await this.safeSwitchChain(this.srcChain);
 
+    const srcConfig = this.getChainConfig(this.srcChain);
     const publicClient = await this.getPublicClient(this.srcChain);
 
     const hash = await this.walletClient.writeContract({
       abi: usdcAbi,
-      address: usdcAddress.optimismSepolia,
+      address: srcConfig.usdcAddress,
       functionName: "approve",
-      args: [
-        tokenMessengerAddress.optimismSepolia,
-        parseUnits(amount.toString(), 6),
-      ],
+      args: [srcConfig.tokenMessengerV2, parseUnits(amount.toString(), 6)],
     });
 
     return await publicClient.waitForTransactionReceipt({ hash });
@@ -101,20 +107,23 @@ export class CctpBridge {
     amount,
     destinationAddress,
   }: {
-    amount: bigint;
+    amount: string;
     destinationAddress: `0x${string}`;
   }) {
-    this.safeSwitchChain(this.srcChain);
+    await this.safeSwitchChain(this.srcChain);
+
+    const srcConfig = this.getChainConfig(this.srcChain);
+    const destConfig = this.getChainConfig(this.destChain);
 
     return await this.walletClient.writeContract({
       abi: tokenMessengerAbi,
-      address: tokenMessengerAddress.optimismSepolia,
+      address: srcConfig.tokenMessengerV2,
       functionName: "depositForBurn",
       args: [
-        parseUnits(amount.toString(), 6),
-        domain.optimismSepolia,
+        parseUnits(amount, 6),
+        destConfig.domain,
         padHex(destinationAddress, { dir: "left", size: 32 }),
-        usdcAddress.optimismSepolia,
+        srcConfig.usdcAddress,
         "0x0000000000000000000000000000000000000000000000000000000000000000",
         parseUnits("0.0005", 6),
         1000,
@@ -162,23 +171,41 @@ export class CctpBridge {
     message: `0x${string}`;
     attestation: `0x${string}`;
   }) {
-    this.safeSwitchChain(this.destChain);
+    await this.safeSwitchChain(this.destChain);
+
+    const destConfig = this.getChainConfig(this.destChain);
 
     return await this.walletClient.writeContract({
-      abi: tokenMessengerAbi,
+      abi: messageTransmitterAbi,
       functionName: "receiveMessage",
-      address: tokenMessengerAddress.optimismSepolia,
+      address: destConfig.messageTransmitterV2,
       args: [attestation.message, attestation.attestation],
     });
   }
 
-  safeSwitchChain(chain: Chain) {
-    try {
-      this.walletClient.switchChain(chain);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (_e) {
-      console.log("Safelly handled chain switch error");
-      // suppress error
+  async safeSwitchChain(chain: Chain) {
+    // Check if using a browser wallet (custom transport) by checking transport type
+    const transportType = this.walletClient.transport?.type;
+    const isBrowserWallet = transportType === "custom";
+
+    if (isBrowserWallet) {
+      // Browser wallets support wallet_switchEthereumChain
+      try {
+        await this.walletClient.switchChain({ id: chain.id });
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_error) {
+        await this.walletClient.addChain({ chain });
+        await this.walletClient.switchChain({ id: chain.id });
+      }
+    } else {
+      // For HTTP/local transports, recreate the wallet client with the new chain
+      const { http, createWalletClient } = await import("viem");
+
+      this.walletClient = createWalletClient({
+        chain: chain,
+        transport: http(),
+        account: this.walletClient.account,
+      });
     }
   }
 }
