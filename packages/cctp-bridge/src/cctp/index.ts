@@ -221,13 +221,13 @@ export class CctpBridge {
   }
 
   async getSrcSmartAccountAddress() {
-    const bundlerClient = await this.getBundlerClient(this.srcChain);
-    return bundlerClient.account.address;
+    const bundlerClient = await this.getSmartAccount(this.srcChain);
+    return bundlerClient.address;
   }
 
   async getDestSmartAccountAddress() {
-    const bundlerClient = await this.getBundlerClient(this.destChain);
-    return bundlerClient.account.address;
+    const bundlerClient = await this.getSmartAccount(this.destChain);
+    return bundlerClient.address;
   }
 
   async approveAndBurnUSDCUsingSmartAccount(amount: string) {
