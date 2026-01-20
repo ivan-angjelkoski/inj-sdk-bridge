@@ -3,14 +3,10 @@ import {
   type Transport,
   type Chain,
   type Account,
-  type PublicClient,
   parseUnits,
   padHex,
 } from "viem";
-import {
-  type BundlerClient,
-  type SmartAccount,
-} from "viem/account-abstraction";
+
 import {
   domain,
   tokenMessengerAbi,
@@ -153,7 +149,7 @@ export class CctpBridge {
                 attestation: `0x${string}`;
               }
             );
-          } catch (error: any) {
+          } catch (error) {
             clearInterval(interval);
             reject(error);
           }
@@ -179,6 +175,7 @@ export class CctpBridge {
   safeSwitchChain(chain: Chain) {
     try {
       this.walletClient.switchChain(chain);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (_e) {
       console.log("Safelly handled chain switch error");
       // suppress error
