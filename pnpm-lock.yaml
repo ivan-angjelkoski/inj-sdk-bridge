@@ -106,6 +106,9 @@ importers:
       eslint:
         specifier: ^9.39.1
         version: 9.39.1
+      permissionless:
+        specifier: ^0.3.3
+        version: 0.3.3(ox@0.11.3(typescript@5.9.2))(viem@2.44.4(typescript@5.9.2))
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(postcss@8.4.31)(typescript@5.9.2)
@@ -1602,6 +1605,15 @@ packages:
 
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
+
+  permissionless@0.3.3:
+    resolution: {integrity: sha512-M08dKCg99RY3usQvPX2qxJLoCIB34twKbWByPH1Vw8JnXV6R3D0pzrd49u7YTU98IzRYMIqKeGzmPZ9Oiwrzcw==}
+    peerDependencies:
+      ox: ^0.8.0
+      viem: ^2.28.1
+    peerDependenciesMeta:
+      ox:
+        optional: true
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -3443,6 +3455,12 @@ snapshots:
   path-parse@1.0.7: {}
 
   pathe@2.0.3: {}
+
+  permissionless@0.3.3(ox@0.11.3(typescript@5.9.2))(viem@2.44.4(typescript@5.9.2)):
+    dependencies:
+      viem: 2.44.4(typescript@5.9.2)
+    optionalDependencies:
+      ox: 0.11.3(typescript@5.9.2)
 
   picocolors@1.1.1: {}
 
