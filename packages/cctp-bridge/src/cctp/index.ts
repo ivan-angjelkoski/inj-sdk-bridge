@@ -5,7 +5,6 @@ import {
   type Account,
   parseUnits,
   padHex,
-  custom,
 } from "viem";
 
 import {
