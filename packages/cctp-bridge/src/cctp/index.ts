@@ -4,60 +4,184 @@ import {
   type Chain,
   type Account,
   type PublicClient,
+  parseUnits,
+  padHex,
 } from "viem";
 import {
-  createBundlerClient,
   type BundlerClient,
   type SmartAccount,
 } from "viem/account-abstraction";
+import {
+  domain,
+  tokenMessengerAbi,
+  tokenMessengerAddress,
+  usdcAbi,
+  usdcAddress,
+} from "../constants";
 
 type WalletClientAccount = WalletClient<Transport, Chain, Account>;
 
 export class CctpBridge {
-  private smartAccount: SmartAccount;
-  private publicClient: PublicClient;
   private walletClient: WalletClientAccount;
-  private bundlerClient: BundlerClient;
+  private srcChain: Chain;
+  private destChain: Chain;
 
   private constructor(params: {
-    smartAccount: SmartAccount;
-    publicClient: PublicClient;
+    srcChain: Chain;
+    destChain: Chain;
     walletClient: WalletClientAccount;
-    bundlerClient: BundlerClient;
   }) {
-    this.smartAccount = params.smartAccount;
-    this.publicClient = params.publicClient;
+    this.srcChain = params.srcChain;
+    this.destChain = params.destChain;
     this.walletClient = params.walletClient;
-    this.bundlerClient = params.bundlerClient;
   }
 
-  static async create(walletClient: WalletClientAccount) {
-    const { createPublicClient, http } = await import("viem");
-    const { baseSepolia } = await import("viem/chains");
-    const { toLightSmartAccount } = await import("permissionless/accounts");
+  static async create(params: {
+    walletClient: WalletClientAccount;
+    srcChain: Chain;
+    destChain: Chain;
+  }) {
+    const { walletClient, srcChain, destChain } = params;
 
-    const publicClient = createPublicClient({
-      chain: baseSepolia,
-      transport: http(),
+    return new CctpBridge({
+      walletClient: walletClient,
+      srcChain: srcChain,
+      destChain: destChain,
     });
+  }
 
-    const lightSmartAccount = await toLightSmartAccount({
-      owner: walletClient,
+  async getPublicClient(chain: Chain, rpcUrl?: string) {
+    const { createPublicClient } = await import("viem");
+    const { http } = await import("viem");
+
+    return createPublicClient({
+      chain: chain,
+      transport: http(rpcUrl),
+    });
+  }
+
+  async getLightSmartAccount(chain: Chain, rpcUrl?: string) {
+    const { toLightSmartAccount } = await import("permissionless/accounts");
+    const publicClient = await this.getPublicClient(chain, rpcUrl);
+
+    return toLightSmartAccount({
+      owner: this.walletClient,
       version: "2.0.0",
       client: publicClient,
     });
+  }
 
-    const bundlerClient = await createBundlerClient({
-      transport: http(),
-      account: lightSmartAccount,
-      chain: baseSepolia,
+  async getBundlerClient(chain: Chain, rpcUrl?: string) {
+    const { createBundlerClient } = await import("viem/account-abstraction");
+    const { http } = await import("viem");
+
+    return createBundlerClient({
+      transport: http(rpcUrl),
+      account: await this.getLightSmartAccount(chain, rpcUrl),
+      chain: chain,
+    });
+  }
+
+  async approveUSDC(amount: bigint) {
+    this.safeSwitchChain(this.srcChain);
+    // approve 1 USDC
+
+    const publicClient = await this.getPublicClient(this.srcChain);
+
+    const hash = await this.walletClient.writeContract({
+      abi: usdcAbi,
+      address: usdcAddress.optimismSepolia,
+      functionName: "approve",
+      args: [
+        tokenMessengerAddress.optimismSepolia,
+        parseUnits(amount.toString(), 6),
+      ],
     });
 
-    return new CctpBridge({
-      smartAccount: lightSmartAccount,
-      walletClient: walletClient,
-      publicClient: publicClient as PublicClient,
-      bundlerClient: bundlerClient,
+    return await publicClient.waitForTransactionReceipt({ hash });
+  }
+
+  async burnUSDC({
+    amount,
+    destinationAddress,
+  }: {
+    amount: bigint;
+    destinationAddress: `0x${string}`;
+  }) {
+    this.safeSwitchChain(this.srcChain);
+
+    return await this.walletClient.writeContract({
+      abi: tokenMessengerAbi,
+      address: tokenMessengerAddress.optimismSepolia,
+      functionName: "depositForBurn",
+      args: [
+        parseUnits(amount.toString(), 6),
+        domain.optimismSepolia,
+        padHex(destinationAddress, { dir: "left", size: 32 }),
+        usdcAddress.optimismSepolia,
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        parseUnits("0.0005", 6),
+        1000,
+      ],
     });
+  }
+
+  async retrieveAttestation({
+    domain,
+    burnTx,
+  }: {
+    domain: number;
+    burnTx: `0x${string}`;
+  }) {
+    const url = `https://iris-api-sandbox.circle.com/v2/messages/${domain}?transactionHash=${burnTx}`;
+
+    return new Promise<{ message: `0x${string}`; attestation: `0x${string}` }>(
+      (resolve, reject) => {
+        const interval = setInterval(async () => {
+          try {
+            const response = await fetch(url);
+            if (!response.ok) return;
+
+            const data = await response.json();
+            if (!data?.messages?.[0]) return;
+            if (data.messages[0].status !== "complete") return;
+
+            clearInterval(interval);
+            resolve(
+              data.messages[0] as {
+                message: `0x${string}`;
+                attestation: `0x${string}`;
+              }
+            );
+          } catch (error: any) {
+            clearInterval(interval);
+            reject(error);
+          }
+        }, 5000);
+      }
+    );
+  }
+
+  async mintUSDC(attestation: {
+    message: `0x${string}`;
+    attestation: `0x${string}`;
+  }) {
+    this.safeSwitchChain(this.destChain);
+
+    return await this.walletClient.writeContract({
+      abi: tokenMessengerAbi,
+      functionName: "receiveMessage",
+      address: tokenMessengerAddress.optimismSepolia,
+      args: [attestation.message, attestation.attestation],
+    });
+  }
+
+  safeSwitchChain(chain: Chain) {
+    try {
+      this.walletClient.switchChain(chain);
+    } catch (_e) {
+      console.log("Safelly handled chain switch error");
+      // suppress error
+    }
   }
 }
