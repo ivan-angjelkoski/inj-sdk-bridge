@@ -38,15 +38,6 @@ onMounted(async () => {
   });
 });
 
-async function approveUSDC() {
-  if (!bridge) {
-    throw new Error("Bridge not found");
-  }
-
-  console.log("########## Minting USDC ##########");
-  const mint = await bridge.mintUSDC({ attestation: "0x", message: "0x" });
-  console.log("########## Minted USDC ##########");
-}
 async function handleBridge() {
   if (!bridge) {
     throw new Error("Bridge not found");
@@ -54,26 +45,19 @@ async function handleBridge() {
 
   const address = await bridge.getAddress();
 
-  console.log("########## Approving USDC ##########");
   const approve = await bridge.approveUSDC("0.01");
 
-  console.log("########## Burning USDC ##########");
   const burn = await bridge.burnUSDC({
     amount: "0.01",
     destinationAddress: address,
   });
 
-  console.log("########## Retrieving Attestation ##########");
   const attestation = await bridge.retrieveAttestation({
     domain: CCTP_CONTRACTS[optimismSepolia.id]!.domain,
     burnTx: burn,
   });
 
-  console.log("########## Minting USDC ##########");
   const mint = await bridge.mintUSDC(attestation);
-  console.log("########## Minted USDC ##########");
-
-  console.log({ approve, burn, attestation, mint });
 }
 
 type Balances = Awaited<
@@ -110,23 +94,15 @@ async function smartAccountBridge() {
     throw new Error("Bridge not found");
   }
 
-  const smartAccountAddress = await bridge.getSrcSmartAccountAddress();
   const externalAddress = await bridge.getAddress();
 
-  console.log("########## Approving USDC ##########");
   const burn = await bridge.approveAndBurnUSDCUsingSmartAccount(
     "0.01",
     externalAddress,
     true,
   );
-  console.log("########## Approved USDC ##########");
 
-  console.log("########## Burning USDC ##########");
   const receipt = await bridge.waitForUserOperation(burn, true);
-  console.log("########## Burned USDC ##########");
-
-  console.log("########## Receipt ##########");
-  console.log(receipt);
 
   const attestation = await bridge.retrieveAttestation({
     domain: CCTP_CONTRACTS[optimismSepolia.id]!.domain,
@@ -134,16 +110,13 @@ async function smartAccountBridge() {
   });
 
   const mint = await bridge.mintUSDCViaRelayer(attestation);
-
-  console.log("########## Minted USDC ##########");
-  console.log(mint);
 }
 </script>
 <template>
   <div>
     <NuxtRouteAnnouncer />
     <button @click="handleBridge">Handle Bridge</button>
-    <button @click="approveUSDC">Approve USDC</button>
+    <button @click="smartAccountBridge">Smart Account Bridge</button>
     <button @click="fetchBalances">Fetch Balances</button>
 
     <div>
@@ -168,7 +141,5 @@ async function smartAccountBridge() {
         </p>
       </fieldset>
     </div>
-
-    <button @click="smartAccountBridge">Smart Account Bridge</button>
   </div>
 </template>
