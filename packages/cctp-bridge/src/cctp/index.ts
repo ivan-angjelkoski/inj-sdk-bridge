@@ -24,15 +24,18 @@ export class CctpBridge {
   private walletClient: WalletClientAccount;
   private srcChain: Chain;
   private destChain: Chain;
+  private rpcUrls: Record<number, string>;
 
   private constructor(params: {
     srcChain: Chain;
     destChain: Chain;
     walletClient: WalletClientAccount;
+    rpcUrls: Record<number, string>;
   }) {
     this.srcChain = params.srcChain;
     this.destChain = params.destChain;
     this.walletClient = params.walletClient;
+    this.rpcUrls = params.rpcUrls;
   }
 
   private getChainConfig(chain: Chain): CctpContractAddresses {
@@ -47,13 +50,15 @@ export class CctpBridge {
     walletClient: WalletClientAccount;
     srcChain: Chain;
     destChain: Chain;
+    rpcUrls?: Record<number, string>;
   }) {
-    const { walletClient, srcChain, destChain } = params;
+    const { walletClient, srcChain, destChain, rpcUrls = {} } = params;
 
     return new CctpBridge({
       walletClient: walletClient,
       srcChain: srcChain,
       destChain: destChain,
+      rpcUrls,
     });
   }
 
@@ -61,14 +66,19 @@ export class CctpBridge {
     const { createPublicClient } = await import("viem");
     const { http } = await import("viem");
 
+    const _rpcUrl = this.rpcUrls[chain.id] || rpcUrl || undefined;
+
     return createPublicClient({
       chain: chain,
-      transport: http(rpcUrl),
+      transport: http(_rpcUrl),
     });
   }
 
   async getSmartAccount(chain: Chain, rpcUrl?: string) {
     const { toLightSmartAccount } = await import("permissionless/accounts");
+
+    // const _rpcUrl = this.rpcUrls[chain.id] || rpcUrl || undefined;
+
     const publicClient = await this.getPublicClient(chain, rpcUrl);
 
     const owner = await toOwner({
@@ -89,8 +99,10 @@ export class CctpBridge {
     const { createBundlerClient } = await import("viem/account-abstraction");
     const { http } = await import("viem");
 
+    const _rpcUrl = this.rpcUrls[chain.id] || rpcUrl || undefined;
+
     return createBundlerClient({
-      transport: http(rpcUrl),
+      transport: http(_rpcUrl),
       account: await this.getSmartAccount(chain, rpcUrl),
       chain: chain,
     });

@@ -75,7 +75,7 @@ describe("CCTP Bridge Balances", () => {
       expect(typeof balances.destNativeBalance.formatted).toBe("string");
 
       // Log balances for visibility
-      console.log(`\nSource Smart Account Address: ${address}`);
+      console.log(`\nAddress: ${address}`);
       console.log("\nAccount Balances:");
       console.log(`Source Chain (${optimismSepolia.name}):`);
       console.log(`  USDC: ${balances.srcUsdcBalance.formatted}`);
