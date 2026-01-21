@@ -12,10 +12,12 @@
   },
   "dependencies": {
     "@inj-sdk/ui": "workspace:*",
+    "permissionless": "^0.3.3",
     "next": "16.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "@inj-sdk/cctp-bridge": "workspace:*"
+    "@inj-sdk/cctp-bridge": "workspace:*",
+    "viem": "^2.44.4"
   },
   "devDependencies": {
     "@inj-sdk/eslint-config": "workspace:*",
