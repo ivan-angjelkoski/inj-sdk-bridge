@@ -16,8 +16,7 @@ import {
   messageTransmitterAbi,
   usdcAbi,
 } from "../constants";
-import { toOwner } from "permissionless";
-import { toAccount } from "viem/accounts";
+
 import { walletClientToAccount } from "./helpers";
 
 type WalletClientAccount = WalletClient<Transport, Chain, Account>;
@@ -29,6 +28,7 @@ export class CctpBridge {
   private rpcUrls: Record<number, string>;
   private bundlerRpcUrls: Record<number, string>;
   private policyId: string | undefined;
+  private relayerUrl: string | undefined;
 
   private constructor(params: {
     srcChain: Chain;
@@ -37,6 +37,7 @@ export class CctpBridge {
     rpcUrls: Record<number, string>;
     bundlerRpcUrls: Record<number, string>;
     policyId: string | undefined;
+    relayerUrl: string | undefined;
   }) {
     this.srcChain = params.srcChain;
     this.destChain = params.destChain;
@@ -44,6 +45,7 @@ export class CctpBridge {
     this.rpcUrls = params.rpcUrls;
     this.bundlerRpcUrls = params.bundlerRpcUrls;
     this.policyId = params.policyId;
+    this.relayerUrl = params.relayerUrl;
   }
 
   private getChainConfig(chain: Chain): CctpContractAddresses {
@@ -61,6 +63,7 @@ export class CctpBridge {
     rpcUrls?: Record<number, string>;
     bundlerRpcUrls?: Record<number, string>;
     policyId?: string;
+    relayerUrl?: string;
   }) {
     const {
       srcChain,
@@ -69,6 +72,7 @@ export class CctpBridge {
       walletClient,
       rpcUrls = {},
       bundlerRpcUrls = {},
+      relayerUrl,
     } = params;
 
     return new CctpBridge({
@@ -78,6 +82,7 @@ export class CctpBridge {
       rpcUrls,
       bundlerRpcUrls,
       policyId,
+      relayerUrl,
     });
   }
 
@@ -305,13 +310,10 @@ export class CctpBridge {
    * @param relayerUrl - The URL of the CCTP relayer service (default: http://localhost:3001)
    * @returns The transaction result from the relayer
    */
-  async mintUSDCViaRelayer(
-    attestation: {
-      message: `0x${string}`;
-      attestation: `0x${string}`;
-    },
-    relayerUrl: string = "http://localhost:3001"
-  ): Promise<
+  async mintUSDCViaRelayer(attestation: {
+    message: `0x${string}`;
+    attestation: `0x${string}`;
+  }): Promise<
     | {
         success: true;
         transactionHash: `0x${string}`;
@@ -327,7 +329,11 @@ export class CctpBridge {
     // Validate destination chain is supported
     this.getChainConfig(this.destChain);
 
-    const response = await fetch(`${relayerUrl}/mint`, {
+    if (!this.relayerUrl) {
+      throw new Error("Relayer URL is not set");
+    }
+
+    const response = await fetch(`${this.relayerUrl}/mint`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
