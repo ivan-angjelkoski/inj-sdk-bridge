@@ -17,6 +17,8 @@ import {
   usdcAbi,
 } from "../constants";
 import { toOwner } from "permissionless";
+import { toAccount } from "viem/accounts";
+import { walletClientToAccount } from "./helpers";
 
 type WalletClientAccount = WalletClient<Transport, Chain, Account>;
 
@@ -25,6 +27,7 @@ export class CctpBridge {
   private srcChain: Chain;
   private destChain: Chain;
   private rpcUrls: Record<number, string>;
+  private bundlerRpcUrls: Record<number, string>;
   private policyId: string | undefined;
 
   private constructor(params: {
@@ -32,12 +35,14 @@ export class CctpBridge {
     destChain: Chain;
     walletClient: WalletClientAccount;
     rpcUrls: Record<number, string>;
+    bundlerRpcUrls: Record<number, string>;
     policyId: string | undefined;
   }) {
     this.srcChain = params.srcChain;
     this.destChain = params.destChain;
     this.walletClient = params.walletClient;
     this.rpcUrls = params.rpcUrls;
+    this.bundlerRpcUrls = params.bundlerRpcUrls;
     this.policyId = params.policyId;
   }
 
@@ -54,7 +59,8 @@ export class CctpBridge {
     srcChain: Chain;
     destChain: Chain;
     rpcUrls?: Record<number, string>;
-    policyId: string | undefined;
+    bundlerRpcUrls?: Record<number, string>;
+    policyId?: string;
   }) {
     const {
       srcChain,
@@ -62,6 +68,7 @@ export class CctpBridge {
       destChain,
       walletClient,
       rpcUrls = {},
+      bundlerRpcUrls = {},
     } = params;
 
     return new CctpBridge({
@@ -69,6 +76,7 @@ export class CctpBridge {
       srcChain: srcChain,
       destChain: destChain,
       rpcUrls,
+      bundlerRpcUrls,
       policyId,
     });
   }
@@ -92,10 +100,12 @@ export class CctpBridge {
 
     const publicClient = await this.getPublicClient(chain, rpcUrl);
 
-    const owner = await toOwner({
-      owner: this.walletClient,
-      address: this.walletClient.account.address,
-    });
+    // const owner = await toOwner({
+    //   owner: this.walletClient,
+    //   address: this.walletClient.account.address,
+    // });
+
+    const owner = walletClientToAccount(this.walletClient);
 
     const smartAccount = await toLightSmartAccount({
       owner,
@@ -110,7 +120,7 @@ export class CctpBridge {
     const { createBundlerClient } = await import("viem/account-abstraction");
     const { http } = await import("viem");
 
-    const _rpcUrl = this.rpcUrls[chain.id] || rpcUrl || undefined;
+    const _rpcUrl = this.bundlerRpcUrls[chain.id] || rpcUrl || undefined;
 
     return createBundlerClient({
       transport: http(_rpcUrl),
@@ -137,15 +147,17 @@ export class CctpBridge {
 
     const { createBundlerClient } = await import("viem/account-abstraction");
     const { http } = await import("viem");
-    const _rpcUrl = this.rpcUrls[chain.id] || rpcUrl || undefined;
+    const _rpcUrl = this.bundlerRpcUrls[chain.id] || rpcUrl || undefined;
 
     const paymasterContext = await this.getPaymasterContext();
-    const paymaster = await this.getPaymasterClient(chain, _rpcUrl);
+    const paymaster = await this.getPaymasterClient(chain);
+
+    const publicClient = await this.getPublicClient(chain);
 
     return createBundlerClient({
-      chain: chain,
+      account: await this.getSmartAccount(chain),
+      client: publicClient,
       transport: http(_rpcUrl),
-      account: await this.getSmartAccount(chain, rpcUrl),
       paymasterContext,
       paymaster,
     });
@@ -307,6 +319,7 @@ export class CctpBridge {
 
   async approveAndBurnUSDCUsingSmartAccount(
     amount: string,
+    destinationAddress: `0x${string}`,
     usePaymaster: boolean = true
   ) {
     const publicClient = await this.getPublicClient(this.srcChain);
@@ -349,6 +362,11 @@ export class CctpBridge {
       args: [
         parseUnits(amount.toString(), 6),
         this.getChainConfig(this.destChain).domain,
+        padHex(destinationAddress, { dir: "left", size: 32 }),
+        this.getChainConfig(this.srcChain).usdcAddress,
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        parseUnits("0.0005", 6),
+        1000,
       ],
     });
 
@@ -357,6 +375,21 @@ export class CctpBridge {
     });
 
     return userOperation;
+  }
+
+  async waitForUserOperation(
+    userOpHash: `0x${string}`,
+    usePaymaster: boolean = true
+  ) {
+    const bundlerClient = usePaymaster
+      ? await this.getBundlerWithPaymasterClient(this.srcChain)
+      : await this.getBundlerClient(this.srcChain);
+
+    const receipt = await bundlerClient.waitForUserOperationReceipt({
+      hash: userOpHash,
+    });
+
+    return receipt;
   }
 
   async safeSwitchChain(chain: Chain) {

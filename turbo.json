@@ -17,7 +17,7 @@
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "cache": false,
-      "env": ["PRIVATE_KEY"]
+      "env": ["PRIVATE_KEY", "ALCHEMY_API_KEY", "ALCHEMY_POLICY_ID"]
     },
     "dev": {
       "cache": false,
