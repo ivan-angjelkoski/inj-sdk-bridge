@@ -17,11 +17,28 @@
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "cache": false,
-      "env": ["PRIVATE_KEY", "ALCHEMY_API_KEY", "ALCHEMY_POLICY_ID"]
+      "env": [
+        "PRIVATE_KEY",
+        "ALCHEMY_API_KEY",
+        "ALCHEMY_POLICY_ID",
+        "POLICY_ID",
+        "RELAYER_URL",
+        "NUXT_PUBLIC_POLICY_ID",
+        "NUXT_PUBLIC_ALCHEMY_API_KEY"
+      ]
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": [
+        "PRIVATE_KEY",
+        "ALCHEMY_API_KEY",
+        "ALCHEMY_POLICY_ID",
+        "POLICY_ID",
+        "RELAYER_URL",
+        "NUXT_PUBLIC_POLICY_ID",
+        "NUXT_PUBLIC_ALCHEMY_API_KEY"
+      ]
     }
   }
 }

@@ -1,0 +1,20 @@
+{
+  "name": "bridge-nuxt",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "nuxt": "^4.2.2",
+    "vue": "^3.5.27",
+    "vue-router": "^4.6.4",
+    "viem": "^2.44.4",
+    "@inj-sdk/cctp-bridge": "workspace:*",
+    "permissionless": "^0.3.3"
+  }
+}

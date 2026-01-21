@@ -275,14 +275,14 @@ export class CctpBridge {
               data.messages[0] as {
                 message: `0x${string}`;
                 attestation: `0x${string}`;
-              }
+              },
             );
           } catch (error) {
             clearInterval(interval);
             reject(error);
           }
         }, 5000);
-      }
+      },
     );
   }
 
@@ -293,6 +293,9 @@ export class CctpBridge {
     await this.safeSwitchChain(this.destChain);
 
     const destConfig = this.getChainConfig(this.destChain);
+
+    console.log("walletClient ###");
+    console.log(this.walletClient);
 
     return await this.walletClient.writeContract({
       abi: messageTransmitterAbi,
@@ -386,7 +389,7 @@ export class CctpBridge {
   async approveAndBurnUSDCUsingSmartAccount(
     amount: string,
     destinationAddress: `0x${string}`,
-    usePaymaster: boolean = true
+    usePaymaster: boolean = true,
   ) {
     const publicClient = await this.getPublicClient(this.srcChain);
     const bundlerClient = usePaymaster
@@ -445,7 +448,7 @@ export class CctpBridge {
 
   async waitForUserOperation(
     userOpHash: `0x${string}`,
-    usePaymaster: boolean = true
+    usePaymaster: boolean = true,
   ) {
     const bundlerClient = usePaymaster
       ? await this.getBundlerWithPaymasterClient(this.srcChain)
@@ -467,11 +470,21 @@ export class CctpBridge {
       // Browser wallets support wallet_switchEthereumChain
       try {
         await this.walletClient.switchChain({ id: chain.id });
+
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_error) {
         await this.walletClient.addChain({ chain });
         await this.walletClient.switchChain({ id: chain.id });
       }
+
+      // Recreate wallet client with updated chain to ensure viem's chain check passes
+      const { createWalletClient, custom } = await import("viem");
+
+      this.walletClient = createWalletClient({
+        chain: chain,
+        transport: custom(this.walletClient.transport),
+        account: this.walletClient.account,
+      });
     } else {
       // For HTTP/local transports, recreate the wallet client with the new chain
       const { http, createWalletClient } = await import("viem");
@@ -485,7 +498,7 @@ export class CctpBridge {
   }
 
   async getUSDCBalances(
-    accountType: "external" | "smart-account" = "external"
+    accountType: "external" | "smart-account" = "external",
   ) {
     const srcPublicClient = await this.getPublicClient(this.srcChain);
     const destPublicClient = await this.getPublicClient(this.destChain);
