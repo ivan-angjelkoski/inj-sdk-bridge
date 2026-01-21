@@ -25,17 +25,20 @@ export class CctpBridge {
   private srcChain: Chain;
   private destChain: Chain;
   private rpcUrls: Record<number, string>;
+  private policyId: string | undefined;
 
   private constructor(params: {
     srcChain: Chain;
     destChain: Chain;
     walletClient: WalletClientAccount;
     rpcUrls: Record<number, string>;
+    policyId: string | undefined;
   }) {
     this.srcChain = params.srcChain;
     this.destChain = params.destChain;
     this.walletClient = params.walletClient;
     this.rpcUrls = params.rpcUrls;
+    this.policyId = params.policyId;
   }
 
   private getChainConfig(chain: Chain): CctpContractAddresses {
@@ -51,14 +54,22 @@ export class CctpBridge {
     srcChain: Chain;
     destChain: Chain;
     rpcUrls?: Record<number, string>;
+    policyId: string | undefined;
   }) {
-    const { walletClient, srcChain, destChain, rpcUrls = {} } = params;
+    const {
+      srcChain,
+      policyId,
+      destChain,
+      walletClient,
+      rpcUrls = {},
+    } = params;
 
     return new CctpBridge({
       walletClient: walletClient,
       srcChain: srcChain,
       destChain: destChain,
       rpcUrls,
+      policyId,
     });
   }
 
@@ -106,6 +117,48 @@ export class CctpBridge {
       account: await this.getSmartAccount(chain, rpcUrl),
       chain: chain,
     });
+  }
+
+  async getPaymasterClient(chain: Chain, rpcUrl?: string) {
+    const { createPaymasterClient } = await import("viem/account-abstraction");
+    const { http } = await import("viem");
+
+    const _rpcUrl = this.rpcUrls[chain.id] || rpcUrl || undefined;
+
+    return createPaymasterClient({
+      transport: http(_rpcUrl),
+    });
+  }
+
+  async getBundlerWithPaymasterClient(chain: Chain, rpcUrl?: string) {
+    if (!this.policyId) {
+      throw new Error("Policy ID is not set");
+    }
+
+    const { createBundlerClient } = await import("viem/account-abstraction");
+    const { http } = await import("viem");
+    const _rpcUrl = this.rpcUrls[chain.id] || rpcUrl || undefined;
+
+    const paymasterContext = await this.getPaymasterContext();
+    const paymaster = await this.getPaymasterClient(chain, _rpcUrl);
+
+    return createBundlerClient({
+      chain: chain,
+      transport: http(_rpcUrl),
+      account: await this.getSmartAccount(chain, rpcUrl),
+      paymasterContext,
+      paymaster,
+    });
+  }
+
+  async getPaymasterContext() {
+    if (!this.policyId) {
+      throw new Error("Policy ID is not set");
+    }
+
+    return {
+      policyId: this.policyId,
+    };
   }
 
   async approveUSDC(amount: string): Promise<
@@ -252,9 +305,14 @@ export class CctpBridge {
     return bundlerClient.address;
   }
 
-  async approveAndBurnUSDCUsingSmartAccount(amount: string) {
+  async approveAndBurnUSDCUsingSmartAccount(
+    amount: string,
+    usePaymaster: boolean = true
+  ) {
     const publicClient = await this.getPublicClient(this.srcChain);
-    const bundlerClient = await this.getBundlerClient(this.srcChain);
+    const bundlerClient = usePaymaster
+      ? await this.getBundlerWithPaymasterClient(this.srcChain)
+      : await this.getBundlerClient(this.srcChain);
 
     const smartAccountAddress = bundlerClient.account.address;
 
