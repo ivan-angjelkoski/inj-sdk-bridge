@@ -29,6 +29,13 @@ export const messageTransmitterAbi = [
     ],
     outputs: [{ name: "success", type: "bool" }],
   },
+  {
+    type: "function",
+    name: "usedNonces",
+    stateMutability: "view",
+    inputs: [{ name: "nonceHash", type: "bytes32" }],
+    outputs: [{ name: "used", type: "uint256" }],
+  },
 ] as const;
 
 export const usdcAbi = erc20Abi;

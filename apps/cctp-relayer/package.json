@@ -1,0 +1,25 @@
+{
+  "name": "@inj-sdk/cctp-relayer",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun --minify",
+    "start": "bun run dist/index.js",
+    "start:dev": "bun run src/index.ts",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@inj-sdk/cctp-bridge": "workspace:*",
+    "hono": "^4.7.10",
+    "viem": "^2.44.4"
+  },
+  "devDependencies": {
+    "@inj-sdk/eslint-config": "workspace:*",
+    "@inj-sdk/typescript-config": "workspace:*",
+    "@types/bun": "latest",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.2"
+  }
+}

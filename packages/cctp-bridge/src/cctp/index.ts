@@ -297,6 +297,66 @@ export class CctpBridge {
     });
   }
 
+  /**
+   * Mint USDC via a relayer service instead of executing the transaction directly.
+   * This is useful when the user doesn't have native gas tokens on the destination chain.
+   *
+   * @param attestation - The message and attestation from Circle's attestation service
+   * @param relayerUrl - The URL of the CCTP relayer service (default: http://localhost:3001)
+   * @returns The transaction result from the relayer
+   */
+  async mintUSDCViaRelayer(
+    attestation: {
+      message: `0x${string}`;
+      attestation: `0x${string}`;
+    },
+    relayerUrl: string = "http://localhost:3001"
+  ): Promise<
+    | {
+        success: true;
+        transactionHash: `0x${string}`;
+        chainId: number;
+        chainName: string;
+      }
+    | {
+        success: false;
+        error: string;
+        code: string;
+      }
+  > {
+    // Validate destination chain is supported
+    this.getChainConfig(this.destChain);
+
+    const response = await fetch(`${relayerUrl}/mint`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: attestation.message,
+        attestation: attestation.attestation,
+        destinationChainId: this.destChain.id,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: result.error || "Unknown error from relayer",
+        code: result.code || "UNKNOWN_ERROR",
+      };
+    }
+
+    return {
+      success: true,
+      transactionHash: result.transactionHash as `0x${string}`,
+      chainId: result.chainId as number,
+      chainName: result.chainName as string,
+    };
+  }
+
   async getAddress() {
     const [address] = await this.walletClient.getAddresses();
 
