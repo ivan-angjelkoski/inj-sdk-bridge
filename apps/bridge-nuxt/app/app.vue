@@ -12,7 +12,6 @@ import {
   type EIP1193Provider,
 } from "viem";
 import { optimismSepolia, sepolia } from "viem/chains";
-import BridgePanel from "~/components/BridgePanel.vue";
 import type { BridgeStep, StepDetail, StepStatus } from "~/types/bridge";
 
 const runtimeConfig = useRuntimeConfig();
