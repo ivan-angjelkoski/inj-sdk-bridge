@@ -168,7 +168,6 @@ describe("CCTP Bridge Flow with Smart Account and Relayer Mint", () => {
       console.log("\nStep 3: Waiting for attestation from Circle...");
       console.log("This may take several minutes. Polling every 5 seconds...");
       const attestation = await bridge.retrieveAttestation({
-        domain: CCTP_CONTRACTS[optimismSepolia.id].domain,
         burnTx: burnTxHash,
       });
       console.log("Attestation received!");

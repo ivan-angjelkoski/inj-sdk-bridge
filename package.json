@@ -1,6 +1,11 @@
 {
   "name": "inj-sdk",
   "private": true,
+  "pnpm": {
+    "overrides": {
+      "typescript": "5.9.2"
+    }
+  },
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
