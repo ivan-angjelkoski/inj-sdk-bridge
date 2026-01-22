@@ -250,13 +250,9 @@ export class CctpBridge {
     });
   }
 
-  async retrieveAttestation({
-    domain,
-    burnTx,
-  }: {
-    domain: number;
-    burnTx: `0x${string}`;
-  }) {
+  async retrieveAttestation({ burnTx }: { burnTx: `0x${string}` }) {
+    const domain = this.getChainConfig(this.srcChain).domain;
+
     const url = `https://iris-api-sandbox.circle.com/v2/messages/${domain}?transactionHash=${burnTx}`;
 
     return new Promise<{ message: `0x${string}`; attestation: `0x${string}` }>(

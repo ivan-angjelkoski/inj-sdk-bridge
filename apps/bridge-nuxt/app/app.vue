@@ -205,7 +205,6 @@ async function handleBridge() {
 
     const attestation = await runStep(standardSteps.value, "attest", () =>
       bridge!.retrieveAttestation({
-        domain: CCTP_CONTRACTS[optimismSepolia.id]!.domain,
         burnTx: burn,
       }),
     );
@@ -266,7 +265,6 @@ async function smartAccountBridge() {
 
     const attestation = await runStep(smartSteps.value, "attest", () =>
       bridge!.retrieveAttestation({
-        domain: CCTP_CONTRACTS[optimismSepolia.id]!.domain,
         burnTx: receipt.receipt.transactionHash,
       }),
     );
