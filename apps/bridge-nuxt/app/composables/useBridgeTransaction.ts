@@ -92,7 +92,7 @@ export interface UseBridgeTransactionReturn {
    * Start a new bridge session.
    * Creates a new orchestrator and begins execution.
    *
-   * @param params - Parameters for the new session (mode, amount, destinationAddress, etc.)
+   * @param params - Parameters for the new session (mode, amount, destinationAddress, mintMode, etc.)
    */
   start: (params: BridgeOrchestratorParams) => Promise<void>;
 
@@ -182,6 +182,7 @@ function unwrapBridge(
  *     mode: 'standard',
  *     amount: '10',
  *     destinationAddress: '0x...',
+ *     mintMode: 'relayer',
  *   });
  * }
  *

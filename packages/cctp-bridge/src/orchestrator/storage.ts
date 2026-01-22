@@ -174,3 +174,27 @@ export class LocalStorageRepository implements StorageRepository {
     }
   }
 }
+
+/**
+ * Memory Storage Repository
+ * In-memory implementation of StorageRepository for testing or SSR contexts.
+ */
+export class MemoryStorageRepository implements StorageRepository {
+  private readonly store = new Map<string, BridgeState>();
+
+  async save(sessionId: string, state: BridgeState): Promise<void> {
+    this.store.set(sessionId, state);
+  }
+
+  async load(sessionId: string): Promise<BridgeState | null> {
+    return this.store.get(sessionId) ?? null;
+  }
+
+  async remove(sessionId: string): Promise<void> {
+    this.store.delete(sessionId);
+  }
+
+  async listSessions(): Promise<string[]> {
+    return Array.from(this.store.keys());
+  }
+}

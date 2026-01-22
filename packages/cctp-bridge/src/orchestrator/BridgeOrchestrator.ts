@@ -4,6 +4,7 @@ import {
   BridgeStep,
   type BridgeState,
   type BridgeMode,
+  type BridgeMintMode,
   type Listener,
   type BridgeOrchestratorParams,
   type BridgeResumeParams,
@@ -106,6 +107,7 @@ export class BridgeOrchestrator {
     const initialState: BridgeState = {
       step: BridgeStep.IDLE,
       mode: params.mode,
+      mintMode: params.mintMode ?? "relayer",
       isLoading: false,
       error: null,
       sessionId,
@@ -147,6 +149,7 @@ export class BridgeOrchestrator {
     // Clear any previous error state when resuming
     const resumedState: BridgeState = {
       ...state,
+      mintMode: state.mintMode ?? "relayer",
       error: null,
       isLoading: false,
     };
@@ -272,7 +275,7 @@ export class BridgeOrchestrator {
     return {
       [BridgeStep.IDLE]: () => this.stepApproveAndBurn(),
       [BridgeStep.BURNED]: () => this.stepAttest(),
-      [BridgeStep.ATTESTED]: () => this.stepMintViaRelayer(),
+      [BridgeStep.ATTESTED]: () => this.stepMint(),
     };
   }
 
@@ -421,6 +424,26 @@ export class BridgeOrchestrator {
 
     await this.setLoading(true);
 
+    const mintMode: BridgeMintMode = this.state.mintMode ?? "relayer";
+
+    if (mintMode === "relayer") {
+      const result = await this.bridge.mintUSDCViaRelayer(
+        this.state.attestation,
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || "Relayer returned an error");
+      }
+
+      await this.updateState({
+        step: BridgeStep.COMPLETED,
+        mintTxHash: result.transactionHash,
+        isLoading: false,
+      });
+
+      return;
+    }
+
     const mintTxHash = await this.bridge.mintUSDC(this.state.attestation);
 
     await this.updateState({
@@ -461,29 +484,6 @@ export class BridgeOrchestrator {
     await this.updateState({
       step: BridgeStep.BURNED,
       userOpReceiptTxHash: receipt.receipt.transactionHash,
-      isLoading: false,
-    });
-  }
-
-  /**
-   * Step: Mint USDC via Relayer (for smart account flow).
-   */
-  private async stepMintViaRelayer(): Promise<void> {
-    if (!this.state.attestation) {
-      throw new Error("No attestation available for minting");
-    }
-
-    await this.setLoading(true);
-
-    const result = await this.bridge.mintUSDCViaRelayer(this.state.attestation);
-
-    if (!result.success) {
-      throw new Error(result.error || "Relayer returned an error");
-    }
-
-    await this.updateState({
-      step: BridgeStep.COMPLETED,
-      mintTxHash: result.transactionHash,
       isLoading: false,
     });
   }

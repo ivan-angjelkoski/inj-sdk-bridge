@@ -22,6 +22,12 @@ export enum BridgeStep {
 export type BridgeMode = "standard" | "smart-account";
 
 /**
+ * Bridge Mint Mode
+ * Determines how the final mint transaction is executed.
+ */
+export type BridgeMintMode = "direct" | "relayer";
+
+/**
  * Bridge State
  * Complete state representation for the CCTP bridge transaction.
  * This is persisted to storage and used to resume interrupted sessions.
@@ -31,6 +37,8 @@ export interface BridgeState {
   step: BridgeStep;
   /** Execution mode (standard wallet or smart account) */
   mode: BridgeMode;
+  /** Minting mode (direct transaction or relayer) */
+  mintMode: BridgeMintMode;
   /** Whether an async operation is in progress */
   isLoading: boolean;
   /** Error message if the last operation failed */
@@ -92,6 +100,8 @@ export interface BridgeOrchestratorParams {
   amount: string;
   /** Destination address for receiving USDC */
   destinationAddress: `0x${string}`;
+  /** Minting mode (direct transaction or relayer) */
+  mintMode?: BridgeMintMode;
   /** Whether to use paymaster (smart account mode only) */
   usePaymaster?: boolean;
 }
