@@ -7,6 +7,8 @@ import {
   padHex,
   formatUnits,
   type Call,
+  encodeFunctionData,
+  getContract,
 } from "viem";
 
 import {
@@ -179,6 +181,48 @@ export class CctpBridge {
     };
   }
 
+  async getUsdcContract(chain: Chain) {
+    const srcConfig = this.getChainConfig(chain);
+    const publicClient = await this.getPublicClient(chain);
+
+    return getContract({
+      abi: usdcAbi,
+      address: srcConfig.usdcAddress,
+      client: {
+        public: publicClient,
+        wallet: this.walletClient,
+      },
+    });
+  }
+
+  async getTokenMessengerContract(chain: Chain) {
+    const srcConfig = this.getChainConfig(chain);
+    const publicClient = await this.getPublicClient(chain);
+
+    return getContract({
+      abi: tokenMessengerAbi,
+      address: srcConfig.tokenMessengerV2,
+      client: {
+        public: publicClient,
+        wallet: this.walletClient,
+      },
+    });
+  }
+
+  async getMessageTransmitterContract(chain: Chain) {
+    const srcConfig = this.getChainConfig(chain);
+    const publicClient = await this.getPublicClient(chain);
+
+    return getContract({
+      abi: messageTransmitterAbi,
+      address: srcConfig.messageTransmitterV2,
+      client: {
+        public: publicClient,
+        wallet: this.walletClient,
+      },
+    });
+  }
+
   async approveUSDC(amount: string): Promise<
     | {
         status: "success";
@@ -192,30 +236,27 @@ export class CctpBridge {
     await this.safeSwitchChain(this.srcChain);
 
     const srcConfig = this.getChainConfig(this.srcChain);
-    const publicClient = await this.getPublicClient(this.srcChain);
 
     const srcAddress = this.walletClient.account.address;
 
-    const allowance = await publicClient.readContract({
-      abi: usdcAbi,
-      address: srcConfig.usdcAddress,
-      functionName: "allowance",
-      args: [srcAddress, srcConfig.tokenMessengerV2],
-    });
+    const usdcContract = await this.getUsdcContract(this.srcChain);
 
-    if (allowance > parseUnits(amount.toString(), 6)) {
+    const allowance = await usdcContract.read.allowance([
+      srcAddress,
+      srcConfig.tokenMessengerV2,
+    ]);
+
+    if (allowance >= parseUnits(amount.toString(), 6)) {
       return {
         status: "already-approved",
         transactionHash: null,
       };
     }
 
-    const hash = await this.walletClient.writeContract({
-      abi: usdcAbi,
-      address: srcConfig.usdcAddress,
-      functionName: "approve",
-      args: [srcConfig.tokenMessengerV2, parseUnits(amount.toString(), 6)],
-    });
+    const hash = await usdcContract.write.approve([
+      srcConfig.tokenMessengerV2,
+      parseUnits(amount.toString(), 6),
+    ]);
 
     return {
       status: "success",
@@ -235,20 +276,19 @@ export class CctpBridge {
     const srcConfig = this.getChainConfig(this.srcChain);
     const destConfig = this.getChainConfig(this.destChain);
 
-    return await this.walletClient.writeContract({
-      abi: tokenMessengerAbi,
-      address: srcConfig.tokenMessengerV2,
-      functionName: "depositForBurn",
-      args: [
-        parseUnits(amount, 6),
-        destConfig.domain,
-        padHex(destinationAddress, { dir: "left", size: 32 }),
-        srcConfig.usdcAddress,
-        "0x0000000000000000000000000000000000000000000000000000000000000000",
-        parseUnits("0.0005", 6),
-        1000,
-      ],
-    });
+    const tokenMessengerContract = await this.getTokenMessengerContract(
+      this.srcChain,
+    );
+
+    return await tokenMessengerContract.write.depositForBurn([
+      parseUnits(amount, 6),
+      destConfig.domain,
+      padHex(destinationAddress, { dir: "left", size: 32 }),
+      srcConfig.usdcAddress,
+      "0x0000000000000000000000000000000000000000000000000000000000000000",
+      parseUnits("0.0005", 6),
+      1000,
+    ]);
   }
 
   async retrieveAttestation({ burnTx }: { burnTx: `0x${string}` }) {
@@ -289,17 +329,14 @@ export class CctpBridge {
   }) {
     await this.safeSwitchChain(this.destChain);
 
-    const destConfig = this.getChainConfig(this.destChain);
+    const messageTransmitterContract = await this.getMessageTransmitterContract(
+      this.destChain,
+    );
 
-    console.log("walletClient ###");
-    console.log(this.walletClient);
-
-    return await this.walletClient.writeContract({
-      abi: messageTransmitterAbi,
-      functionName: "receiveMessage",
-      address: destConfig.messageTransmitterV2,
-      args: [attestation.message, attestation.attestation],
-    });
+    return await messageTransmitterContract.write.receiveMessage([
+      attestation.message,
+      attestation.attestation,
+    ]);
   }
 
   /**
@@ -486,9 +523,11 @@ export class CctpBridge {
       // For HTTP/local transports, recreate the wallet client with the new chain
       const { http, createWalletClient } = await import("viem");
 
+      const rpcUrl = this.rpcUrls[chain.id] || undefined;
+
       this.walletClient = createWalletClient({
         chain: chain,
-        transport: http(),
+        transport: http(rpcUrl),
         account: this.walletClient.account,
       });
     }
