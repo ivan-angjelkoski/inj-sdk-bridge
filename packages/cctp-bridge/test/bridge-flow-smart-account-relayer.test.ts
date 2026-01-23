@@ -5,10 +5,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { optimismSepolia, sepolia } from "viem/chains";
 
 import { CctpBridge } from "../src/cctp";
-import {
-  getAlchemyRpcUrls,
-  getPimlicoBundlerRpcUrls,
-} from "../src/cctp/helpers";
+import { getAlchemyRpcUrls, getPimlicoBundlerRpcUrls } from "../src";
 import { CCTP_CONTRACTS } from "../src/constants";
 
 const privateKey = import.meta.env.PRIVATE_KEY as string | undefined;

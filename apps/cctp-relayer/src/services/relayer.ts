@@ -9,20 +9,17 @@ import {
   type Transport,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { CCTP_CONTRACTS, messageTransmitterAbi } from "@inj-sdk/cctp-bridge";
+import {
+  CCTP_CONTRACTS,
+  messageTransmitterAbi,
+  type RelayerErrorCode,
+} from "@inj-sdk/cctp-bridge";
 import { getAlchemyRpcUrls, getChainById } from "../config/chains";
 import { parseCctpMessage, hashSourceAndNonce } from "../utils/message";
 
 /**
  * Error codes for relayer operations
  */
-export type RelayerErrorCode =
-  | "INVALID_REQUEST"
-  | "UNSUPPORTED_CHAIN"
-  | "ALREADY_PROCESSED"
-  | "EXECUTION_FAILED"
-  | "MISSING_CONFIG";
-
 export class RelayerError extends Error {
   constructor(
     message: string,
@@ -34,20 +31,6 @@ export class RelayerError extends Error {
 }
 
 /**
- * Extended ABI with usedNonces function for checking if message is already processed
- */
-const extendedMessageTransmitterAbi = [
-  ...messageTransmitterAbi,
-  {
-    type: "function",
-    name: "usedNonces",
-    inputs: [{ name: "nonceHash", type: "bytes32" }],
-    outputs: [{ name: "used", type: "uint256" }],
-    stateMutability: "view",
-  },
-] as const;
-
-/**
  * Relayer service for executing CCTP mint transactions
  */
 export class RelayerService {
@@ -56,7 +39,7 @@ export class RelayerService {
 
   constructor(privateKey: `0x${string}`, alchemyApiKey: string) {
     this.account = privateKeyToAccount(privateKey);
-    this.rpcUrls = getAlchemyRpcUrls(alchemyApiKey);
+    this.rpcUrls = getAlchemyRpcUrls({ apiKey: alchemyApiKey });
   }
 
   /**
@@ -133,7 +116,7 @@ export class RelayerService {
     const nonceHash = hashSourceAndNonce(parsed.sourceDomain, parsed.nonce);
 
     const used = await publicClient.readContract({
-      abi: extendedMessageTransmitterAbi,
+      abi: messageTransmitterAbi,
       address: config.messageTransmitterV2,
       functionName: "usedNonces",
       args: [nonceHash],

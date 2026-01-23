@@ -16,6 +16,7 @@ import {
   messageTransmitterAbi,
   usdcAbi,
 } from "../constants";
+import type { RelayerErrorCode } from "../relayer";
 
 import { walletClientToAccount } from "./helpers";
 
@@ -322,7 +323,7 @@ export class CctpBridge {
     | {
         success: false;
         error: string;
-        code: string;
+        code: RelayerErrorCode;
       }
   > {
     // Validate destination chain is supported
@@ -350,7 +351,7 @@ export class CctpBridge {
       return {
         success: false,
         error: result.error || "Unknown error from relayer",
-        code: result.code || "UNKNOWN_ERROR",
+        code: (result.code as RelayerErrorCode) || "EXECUTION_FAILED",
       };
     }
 
