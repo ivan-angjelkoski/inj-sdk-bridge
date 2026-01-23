@@ -9,6 +9,7 @@ import {
 import {
   createWalletClient,
   custom,
+  http,
   type Chain,
   type EIP1193Provider,
 } from "viem";
@@ -21,9 +22,16 @@ const runtimeConfig = useRuntimeConfig();
 // Core bridge instance - use shallowRef for class instances to avoid deep reactivity
 const bridge = shallowRef<CctpBridge | null>(null);
 
+const walletAddress = ref<`0x${string}` | null>(null);
+const storagePrefix = computed(() =>
+  walletAddress.value
+    ? `cctp-bridge-session-${walletAddress.value.toLowerCase()}-`
+    : undefined,
+);
+
 // Use composable for each flow type
-const standard = useBridgeTransaction({ bridge });
-const smart = useBridgeTransaction({ bridge });
+const standard = useBridgeTransaction({ bridge, storagePrefix });
+const smart = useBridgeTransaction({ bridge, storagePrefix });
 
 // Balances
 type Balances = Awaited<
@@ -36,28 +44,69 @@ const balances = ref<{
   smartAccountBalances: Balances;
 }>();
 
-// Initialize wallet and bridge on mount
-onMounted(async () => {
-  const [address] = await (window as any).ethereum.request({
-    method: "eth_requestAccounts",
-  });
+let ethereumProvider: EIP1193Provider | null = null;
+
+async function setActiveAddress(address?: string): Promise<void> {
   if (!address) {
-    throw new Error("No address found");
+    walletAddress.value = null;
+    balances.value = undefined;
+    bridge.value = null;
+    return;
   }
+
+  if (!ethereumProvider) {
+    throw new Error("Ethereum provider not found");
+  }
+
+  const nextAddress = address as `0x${string}`;
+  if (walletAddress.value?.toLowerCase() === nextAddress.toLowerCase()) {
+    return;
+  }
+
+  walletAddress.value = nextAddress;
+  balances.value = undefined;
+
+  const walletClient = createWalletClient({
+    account: nextAddress,
+    chain: optimismSepolia,
+    transport: custom(ethereumProvider),
+  });
 
   bridge.value = await CctpBridge.create({
     srcChain: optimismSepolia,
     destChain: sepolia,
-    walletClient: createWalletClient({
-      account: address as `0x${string}`,
-      chain: optimismSepolia,
-      transport: custom((window as any).ethereum as unknown as EIP1193Provider),
-    }),
+    walletClient: walletClient,
     policyId: runtimeConfig.public.alchemyPolicyId,
     relayerUrl: "http://localhost:3001",
     rpcUrls: getAlchemyRpcUrls({ apiKey: runtimeConfig.public.alchemyApiKey }),
     bundlerRpcUrls: getPimlicoBundlerRpcUrls(),
   });
+}
+
+const handleAccountsChanged = (accounts: string[]) => {
+  void setActiveAddress(accounts[0]);
+};
+
+// Initialize wallet and bridge on mount
+onMounted(async () => {
+  ethereumProvider = (window as any).ethereum as EIP1193Provider;
+
+  if (!ethereumProvider) {
+    throw new Error("Ethereum provider not found");
+  }
+
+  const tempWalletClient = createWalletClient({
+    chain: optimismSepolia,
+    transport: custom(ethereumProvider),
+  });
+  const [address] = await tempWalletClient.requestAddresses();
+
+  await setActiveAddress(address);
+  ethereumProvider.on?.("accountsChanged", handleAccountsChanged);
+});
+
+onUnmounted(() => {
+  ethereumProvider?.removeListener?.("accountsChanged", handleAccountsChanged);
 });
 
 // ============================================

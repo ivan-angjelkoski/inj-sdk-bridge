@@ -4,6 +4,7 @@ import {
   computed,
   watch,
   onUnmounted,
+  isRef,
   type Ref,
   type ShallowRef,
   type ComputedRef,
@@ -37,7 +38,19 @@ export interface UseBridgeTransactionOptions {
    * Defaults to LocalStorageRepository if not provided.
    */
   storage?: StorageRepository;
+
+  /**
+   * Optional prefix for LocalStorageRepository session keys.
+   * Useful for namespacing sessions by wallet address.
+   */
+  storagePrefix?:
+    | string
+    | Ref<string | null | undefined>
+    | ShallowRef<string | null | undefined>
+    | null;
 }
+
+type StoragePrefix = string | null | undefined;
 
 /**
  * Return type for the useBridgeTransaction composable.
@@ -153,6 +166,17 @@ function unwrapBridge(
 }
 
 /**
+ * Create a LocalStorageRepository with an optional prefix.
+ */
+function createLocalStorageRepository(
+  prefix: StoragePrefix,
+): LocalStorageRepository {
+  return prefix
+    ? new LocalStorageRepository(prefix)
+    : new LocalStorageRepository();
+}
+
+/**
  * Vue 3 Composable for managing CCTP Bridge transactions.
  *
  * This composable provides a complete solution for:
@@ -218,8 +242,15 @@ export function useBridgeTransaction(
   // Setup
   // ============================================
 
+  const usesCustomStorage = Boolean(options.storage);
+  const storagePrefixRef: Ref<StoragePrefix> = isRef(options.storagePrefix)
+    ? options.storagePrefix
+    : ref(options.storagePrefix);
+
   // Use provided storage or create default LocalStorageRepository
-  const storage = options.storage ?? new LocalStorageRepository();
+  const storageRef = shallowRef<StorageRepository>(
+    options.storage ?? createLocalStorageRepository(storagePrefixRef.value),
+  );
 
   // Internal orchestrator reference (shallow to avoid deep reactivity)
   const orchestrator = shallowRef<BridgeOrchestrator | null>(null);
@@ -292,14 +323,15 @@ export function useBridgeTransaction(
    * Refresh the list of pending sessions from storage.
    */
   async function refreshSessions(): Promise<void> {
-    if (storage instanceof LocalStorageRepository) {
-      pendingSessions.value = await storage.loadAllSessions();
+    const currentStorage = storageRef.value;
+    if (currentStorage instanceof LocalStorageRepository) {
+      pendingSessions.value = await currentStorage.loadAllSessions();
     } else {
       // For custom storage implementations, load sessions manually
-      const sessionIds = await storage.listSessions();
+      const sessionIds = await currentStorage.listSessions();
       const sessions: BridgeState[] = [];
       for (const sessionId of sessionIds) {
-        const session = await storage.load(sessionId);
+        const session = await currentStorage.load(sessionId);
         if (session) {
           sessions.push(session);
         }
@@ -312,7 +344,7 @@ export function useBridgeTransaction(
    * Remove a specific session from storage.
    */
   async function removeSession(sessionId: string): Promise<void> {
-    await storage.remove(sessionId);
+    await storageRef.value.remove(sessionId);
     await refreshSessions();
   }
 
@@ -331,7 +363,7 @@ export function useBridgeTransaction(
 
     const orch = await BridgeOrchestrator.create({
       bridge: bridgeInstance,
-      storage,
+      storage: storageRef.value,
       params,
     });
 
@@ -364,7 +396,7 @@ export function useBridgeTransaction(
 
     const orch = await BridgeOrchestrator.resume({
       bridge: bridgeInstance,
-      storage,
+      storage: storageRef.value,
       params: { sessionId },
     });
 
@@ -380,7 +412,7 @@ export function useBridgeTransaction(
     const resumedState = orch.getState();
     if (resumedState.step === BridgeStep.COMPLETED) {
       // Session is already done, remove it from storage and don't show in UI
-      await storage.remove(sessionId);
+      await storageRef.value.remove(sessionId);
       await refreshSessions();
       return;
     }
@@ -412,6 +444,16 @@ export function useBridgeTransaction(
   // ============================================
   // Auto-load Sessions
   // ============================================
+
+  watch(storagePrefixRef, async (nextPrefix, previousPrefix) => {
+    if (usesCustomStorage || nextPrefix === previousPrefix) {
+      return;
+    }
+
+    storageRef.value = createLocalStorageRepository(nextPrefix);
+    setOrchestrator(null);
+    await refreshSessions();
+  });
 
   // Watch for bridge availability and auto-load sessions
   const bridgeRef =
