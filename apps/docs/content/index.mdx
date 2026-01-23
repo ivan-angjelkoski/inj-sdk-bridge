@@ -1,0 +1,47 @@
+# CCTP Bridge SDK
+
+Welcome to the **CCTP Bridge SDK** documentation. This SDK provides tools for bridging USDC between EVM chains using Circle's Cross-Chain Transfer Protocol (CCTP).
+
+## What is CCTP?
+
+Circle's Cross-Chain Transfer Protocol (CCTP) enables native USDC to be transferred between supported blockchains. Unlike traditional bridges that lock and mint wrapped tokens, CCTP burns USDC on the source chain and mints native USDC on the destination chain.
+
+## Features
+
+- **CctpBridge** - Low-level primitives for the approve/burn/attest/mint flow
+- **BridgeOrchestrator** - Resumable FSM with storage and observer pattern for UI integration
+- **Smart Account Support** - ERC-4337 bundler and paymaster integration
+- **Relayer Minting** - Gasless minting on the destination chain
+
+## Supported Chains
+
+### Mainnet
+
+- Ethereum
+- Optimism
+- Arbitrum
+- Base
+- Polygon
+- Avalanche
+- Linea
+- Sonic
+- Sei
+- Ink
+
+### Testnet
+
+- Sepolia
+- Optimism Sepolia
+- Arbitrum Sepolia
+- Base Sepolia
+- Polygon Amoy
+- Avalanche Fuji
+- Linea Sepolia
+- Ink Sepolia
+
+## Quick Links
+
+- [Getting Started](/getting-started) - Installation and basic setup
+- [CctpBridge](/cctp-bridge) - Core bridge class API
+- [Orchestrator](/orchestrator) - State machine for resumable flows
+- [Examples](/examples) - Complete code examples

@@ -1,0 +1,367 @@
+# Examples
+
+Complete code examples for common use cases.
+
+## Standard EOA Bridge Flow
+
+Bridge USDC using a standard wallet (EOA) with direct minting.
+
+```ts
+import { CctpBridge } from "@inj-sdk/cctp-bridge";
+import { createWalletClient, http } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { optimismSepolia, sepolia } from "viem/chains";
+
+async function standardBridge() {
+  // Setup wallet
+  const account = privateKeyToAccount("0x...");
+  const walletClient = createWalletClient({
+    chain: optimismSepolia,
+    transport: http(),
+    account,
+  });
+
+  // Create bridge
+  const bridge = await CctpBridge.create({
+    walletClient,
+    srcChain: optimismSepolia,
+    destChain: sepolia,
+  });
+
+  console.log(`Bridging from ${account.address}`);
+
+  // Step 1: Approve USDC
+  console.log("Step 1: Approving USDC...");
+  const approval = await bridge.approveUSDC("1.0");
+  if (approval.status === "success") {
+    console.log(`Approval tx: ${approval.transactionHash}`);
+  } else {
+    console.log("Already approved");
+  }
+
+  // Step 2: Burn USDC
+  console.log("Step 2: Burning USDC...");
+  const burnTx = await bridge.burnUSDC({
+    amount: "1.0",
+    destinationAddress: account.address,
+  });
+  console.log(`Burn tx: ${burnTx}`);
+
+  // Step 3: Wait for attestation
+  console.log(
+    "Step 3: Waiting for attestation (this may take a few minutes)...",
+  );
+  const attestation = await bridge.retrieveAttestation({ burnTx });
+  console.log("Attestation received!");
+
+  // Step 4: Mint on destination
+  console.log("Step 4: Minting USDC on destination chain...");
+  const mintTx = await bridge.mintUSDC(attestation);
+  console.log(`Mint tx: ${mintTx}`);
+
+  console.log("Bridge complete!");
+}
+
+standardBridge().catch(console.error);
+```
+
+## Smart Account with Paymaster
+
+Bridge using a smart account with gas sponsorship and relayer minting.
+
+```ts
+import {
+  CctpBridge,
+  getAlchemyRpcUrls,
+  getPimlicoBundlerRpcUrls,
+} from "@inj-sdk/cctp-bridge";
+import { createWalletClient, http } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { optimismSepolia, sepolia } from "viem/chains";
+
+async function smartAccountBridge() {
+  const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+  const walletClient = createWalletClient({
+    chain: optimismSepolia,
+    transport: http(),
+    account,
+  });
+
+  const rpcUrls = getAlchemyRpcUrls({ apiKey: process.env.ALCHEMY_API_KEY! });
+  const bundlerRpcUrls = getPimlicoBundlerRpcUrls();
+
+  const bridge = await CctpBridge.create({
+    walletClient,
+    srcChain: optimismSepolia,
+    destChain: sepolia,
+    rpcUrls,
+    bundlerRpcUrls,
+    policyId: process.env.ALCHEMY_POLICY_ID,
+    relayerUrl: process.env.RELAYER_URL,
+  });
+
+  const smartAccountAddress = await bridge.getSrcSmartAccountAddress();
+  console.log(`EOA: ${account.address}`);
+  console.log(`Smart Account: ${smartAccountAddress}`);
+
+  // Step 1: Approve + Burn in single UserOp
+  console.log("Step 1: Submitting approve+burn UserOp...");
+  const userOpHash = await bridge.approveAndBurnUSDCUsingSmartAccount(
+    "0.1",
+    account.address, // destination address
+    true, // use paymaster
+  );
+  console.log(`UserOp hash: ${userOpHash}`);
+
+  // Step 2: Wait for UserOp confirmation
+  console.log("Step 2: Waiting for UserOp confirmation...");
+  const receipt = await bridge.waitForUserOperation(userOpHash, true);
+  console.log(`Tx hash: ${receipt.receipt.transactionHash}`);
+
+  // Step 3: Get attestation
+  console.log("Step 3: Waiting for attestation...");
+  const attestation = await bridge.retrieveAttestation({
+    burnTx: receipt.receipt.transactionHash,
+  });
+
+  // Step 4: Mint via relayer
+  console.log("Step 4: Minting via relayer...");
+  const mintResult = await bridge.mintUSDCViaRelayer(attestation);
+
+  if (mintResult.success) {
+    console.log(`Mint tx: ${mintResult.transactionHash}`);
+    console.log(`Chain: ${mintResult.chainName}`);
+  } else {
+    throw new Error(mintResult.error);
+  }
+
+  console.log("Bridge complete!");
+}
+
+smartAccountBridge().catch(console.error);
+```
+
+## Orchestrator with React
+
+Full React integration with progress tracking and error handling.
+
+```tsx
+import { useState, useEffect, useCallback } from "react";
+import {
+  CctpBridge,
+  BridgeOrchestrator,
+  BridgeState,
+  BridgeStep,
+  LocalStorageRepository,
+  getAlchemyRpcUrls,
+  getPimlicoBundlerRpcUrls,
+} from "@inj-sdk/cctp-bridge";
+import { createWalletClient, custom } from "viem";
+import { optimismSepolia, sepolia } from "viem/chains";
+
+const storage = new LocalStorageRepository();
+
+function BridgeComponent() {
+  const [orchestrator, setOrchestrator] = useState<BridgeOrchestrator | null>(
+    null,
+  );
+  const [state, setState] = useState<BridgeState | null>(null);
+  const [amount, setAmount] = useState("1.0");
+
+  // Initialize bridge when wallet connects
+  const initBridge = useCallback(async () => {
+    // Assume window.ethereum is available
+    const walletClient = createWalletClient({
+      chain: optimismSepolia,
+      transport: custom(window.ethereum),
+    });
+
+    const [address] = await walletClient.getAddresses();
+    const rpcUrls = getAlchemyRpcUrls({
+      apiKey: process.env.NEXT_PUBLIC_ALCHEMY_KEY!,
+    });
+    const bundlerRpcUrls = getPimlicoBundlerRpcUrls();
+
+    const bridge = await CctpBridge.create({
+      walletClient: walletClient as any,
+      srcChain: optimismSepolia,
+      destChain: sepolia,
+      rpcUrls,
+      bundlerRpcUrls,
+      policyId: process.env.NEXT_PUBLIC_POLICY_ID,
+      relayerUrl: process.env.NEXT_PUBLIC_RELAYER_URL,
+    });
+
+    const orch = await BridgeOrchestrator.create({
+      bridge,
+      storage,
+      params: {
+        mode: "smart-account",
+        amount,
+        destinationAddress: address,
+        mintMode: "relayer",
+        usePaymaster: true,
+      },
+    });
+
+    setOrchestrator(orch);
+    setState(orch.getState());
+  }, [amount]);
+
+  // Subscribe to state changes
+  useEffect(() => {
+    if (!orchestrator) return;
+    return orchestrator.subscribe(setState);
+  }, [orchestrator]);
+
+  const handleBridge = async () => {
+    if (!orchestrator) return;
+    await orchestrator.execute();
+  };
+
+  const handleRetry = async () => {
+    if (!orchestrator) return;
+    await orchestrator.execute();
+  };
+
+  if (!state) {
+    return (
+      <div>
+        <input
+          type="text"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="Amount"
+        />
+        <button onClick={initBridge}>Start Bridge</button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2>Bridge Status</h2>
+      <p>Step: {state.step}</p>
+      <p>Amount: {state.amount} USDC</p>
+
+      {state.isLoading && <p>Processing...</p>}
+
+      {state.error && (
+        <div style={{ color: "red" }}>
+          <p>Error: {state.error}</p>
+          <button onClick={handleRetry}>Retry</button>
+        </div>
+      )}
+
+      {state.step === BridgeStep.IDLE && (
+        <button onClick={handleBridge} disabled={state.isLoading}>
+          Start Bridge
+        </button>
+      )}
+
+      {state.step === BridgeStep.COMPLETED && (
+        <div style={{ color: "green" }}>
+          <p>Bridge Complete!</p>
+          <p>Mint TX: {state.mintTxHash}</p>
+        </div>
+      )}
+
+      <h3>Transaction Hashes</h3>
+      <ul>
+        {state.userOpHash && <li>UserOp: {state.userOpHash}</li>}
+        {state.userOpReceiptTxHash && (
+          <li>Burn TX: {state.userOpReceiptTxHash}</li>
+        )}
+        {state.mintTxHash && <li>Mint TX: {state.mintTxHash}</li>}
+      </ul>
+    </div>
+  );
+}
+
+export default BridgeComponent;
+```
+
+## Resume Interrupted Session
+
+Resume a bridge that was interrupted (e.g., page refresh).
+
+```ts
+import {
+  BridgeOrchestrator,
+  LocalStorageRepository,
+} from "@inj-sdk/cctp-bridge";
+
+async function resumeSession(bridge: CctpBridge, sessionId: string) {
+  const storage = new LocalStorageRepository();
+
+  const orchestrator = await BridgeOrchestrator.resume({
+    bridge,
+    storage,
+    params: { sessionId },
+  });
+
+  if (!orchestrator) {
+    console.log("Session not found");
+    return;
+  }
+
+  const state = orchestrator.getState();
+  console.log(`Resuming session from step: ${state.step}`);
+
+  orchestrator.subscribe((state) => {
+    console.log(`Step: ${state.step}`);
+  });
+
+  await orchestrator.execute();
+}
+```
+
+## List All Pending Sessions
+
+Display all resumable sessions to the user.
+
+```ts
+import { LocalStorageRepository, BridgeStep } from "@inj-sdk/cctp-bridge";
+
+async function listPendingSessions() {
+  const storage = new LocalStorageRepository();
+  const sessions = await storage.loadAllSessions();
+
+  const pending = sessions.filter((s) => s.step !== BridgeStep.COMPLETED);
+
+  console.log(`Found ${pending.length} pending sessions:`);
+
+  pending.forEach((session) => {
+    console.log(`
+      Session: ${session.sessionId}
+      Amount: ${session.amount} USDC
+      Step: ${session.step}
+      Created: ${new Date(session.createdAt).toLocaleString()}
+    `);
+  });
+
+  return pending;
+}
+```
+
+## Check Balances
+
+Check USDC balances before bridging.
+
+```ts
+async function checkBalances(bridge: CctpBridge) {
+  const balances = await bridge.getUSDCBalances("external");
+
+  console.log("EOA Balances:");
+  console.log(`  Source USDC: ${balances.srcUsdcBalance.formatted}`);
+  console.log(`  Source ETH: ${balances.srcNativeBalance.formatted}`);
+  console.log(`  Dest USDC: ${balances.destUsdcBalance.formatted}`);
+  console.log(`  Dest ETH: ${balances.destNativeBalance.formatted}`);
+
+  const smartBalances = await bridge.getUSDCBalances("smart-account");
+
+  console.log("\nSmart Account Balances:");
+  console.log(`  Source USDC: ${smartBalances.srcUsdcBalance.formatted}`);
+  console.log(`  Dest USDC: ${smartBalances.destUsdcBalance.formatted}`);
+}
+```

@@ -1,0 +1,89 @@
+# Getting Started
+
+This guide will help you install and set up the CCTP Bridge SDK in your project.
+
+## Installation
+
+Install the package and its peer dependencies:
+
+```bash npm2yarn
+npm install @inj-sdk/cctp-bridge viem permissionless
+```
+
+## Environment Variables
+
+For smart account and relayer features, you'll need the following environment variables:
+
+```bash
+# Required for smart account flows
+PRIVATE_KEY=0x...                    # Wallet private key
+ALCHEMY_API_KEY=xxx                  # Alchemy API key for RPC access
+ALCHEMY_POLICY_ID=xxx                # Paymaster policy ID for gas sponsorship
+
+# Required for relayer minting
+RELAYER_URL=http://localhost:3001    # URL of the relayer service
+```
+
+## Basic Setup
+
+### Create a Wallet Client
+
+First, create a viem wallet client with your account:
+
+```ts
+import { createWalletClient, http } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { optimismSepolia, sepolia } from "viem/chains";
+
+const account = privateKeyToAccount("0x...");
+const walletClient = createWalletClient({
+  chain: optimismSepolia,
+  transport: http(),
+  account,
+});
+```
+
+### Initialize CctpBridge
+
+Create a bridge instance for your source and destination chains:
+
+```ts
+import { CctpBridge } from "@inj-sdk/cctp-bridge";
+
+const bridge = await CctpBridge.create({
+  walletClient,
+  srcChain: optimismSepolia,
+  destChain: sepolia,
+});
+```
+
+### Smart Account Setup
+
+For smart account flows with paymaster support:
+
+```ts
+import {
+  CctpBridge,
+  getAlchemyRpcUrls,
+  getPimlicoBundlerRpcUrls,
+} from "@inj-sdk/cctp-bridge";
+
+const rpcUrls = getAlchemyRpcUrls({ apiKey: process.env.ALCHEMY_API_KEY! });
+const bundlerRpcUrls = getPimlicoBundlerRpcUrls();
+
+const bridge = await CctpBridge.create({
+  walletClient,
+  srcChain: optimismSepolia,
+  destChain: sepolia,
+  rpcUrls,
+  bundlerRpcUrls,
+  policyId: process.env.ALCHEMY_POLICY_ID,
+  relayerUrl: process.env.RELAYER_URL,
+});
+```
+
+## Next Steps
+
+- Learn about the [CctpBridge API](/cctp-bridge) for low-level control
+- Use the [Orchestrator](/orchestrator) for resumable flows with UI integration
+- See complete [Examples](/examples)

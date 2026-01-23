@@ -1,0 +1,238 @@
+# CctpBridge
+
+The `CctpBridge` class provides low-level primitives for bridging USDC between EVM chains using Circle's CCTP.
+
+## Overview
+
+The bridge flow consists of four main steps:
+
+1. **Approve** - Approve USDC spending on the source chain
+2. **Burn** - Burn USDC via TokenMessenger
+3. **Attest** - Poll Circle's attestation service for the burn proof
+4. **Mint** - Mint USDC on the destination chain
+
+## Creating an Instance
+
+Use the static `create` method to instantiate the bridge:
+
+```ts
+import { CctpBridge } from "@inj-sdk/cctp-bridge";
+import { createWalletClient, http } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { optimismSepolia, sepolia } from "viem/chains";
+
+const account = privateKeyToAccount("0x...");
+const walletClient = createWalletClient({
+  chain: optimismSepolia,
+  transport: http(),
+  account,
+});
+
+const bridge = await CctpBridge.create({
+  walletClient,
+  srcChain: optimismSepolia,
+  destChain: sepolia,
+});
+```
+
+### Constructor Parameters
+
+| Parameter        | Type                     | Required | Description                              |
+| ---------------- | ------------------------ | -------- | ---------------------------------------- |
+| `walletClient`   | `WalletClient`           | Yes      | Viem wallet client with account          |
+| `srcChain`       | `Chain`                  | Yes      | Source chain (where USDC is burned)      |
+| `destChain`      | `Chain`                  | Yes      | Destination chain (where USDC is minted) |
+| `rpcUrls`        | `Record<number, string>` | No       | Custom RPC URLs by chain ID              |
+| `bundlerRpcUrls` | `Record<number, string>` | No       | Bundler RPC URLs for smart accounts      |
+| `policyId`       | `string`                 | No       | Paymaster policy ID for gas sponsorship  |
+| `relayerUrl`     | `string`                 | No       | Relayer service URL for gasless minting  |
+
+## Standard Flow Methods
+
+### approveUSDC
+
+Approve USDC spending on the source chain.
+
+```ts
+const result = await bridge.approveUSDC("10.0");
+
+if (result.status === "success") {
+  console.log("Approval tx:", result.transactionHash);
+} else {
+  console.log("Already approved");
+}
+```
+
+**Returns:**
+
+```ts
+| { status: "success"; transactionHash: `0x${string}` }
+| { status: "already-approved"; transactionHash: null }
+```
+
+### burnUSDC
+
+Burn USDC on the source chain to initiate the transfer.
+
+```ts
+const burnTxHash = await bridge.burnUSDC({
+  amount: "10.0",
+  destinationAddress: "0x...",
+});
+```
+
+**Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `amount` | `string` | Amount of USDC (human-readable, e.g., "10.5") |
+| `destinationAddress` | `` `0x${string}` `` | Address to receive USDC on destination chain |
+
+### retrieveAttestation
+
+Poll Circle's attestation service until the burn proof is ready.
+
+```ts
+const attestation = await bridge.retrieveAttestation({
+  burnTx: burnTxHash,
+});
+```
+
+> **Note:** This method polls every 5 seconds and can take several minutes depending on network conditions.
+
+**Returns:**
+
+```ts
+{
+  message: `0x${string}`;
+  attestation: `0x${string}`;
+}
+```
+
+### mintUSDC
+
+Mint USDC on the destination chain using the attestation.
+
+```ts
+const mintTxHash = await bridge.mintUSDC(attestation);
+```
+
+### mintUSDCViaRelayer
+
+Mint USDC via a relayer service (gasless for the user).
+
+```ts
+const result = await bridge.mintUSDCViaRelayer(attestation);
+
+if (result.success) {
+  console.log("Mint tx:", result.transactionHash);
+} else {
+  console.error("Error:", result.error);
+}
+```
+
+**Returns:**
+
+```ts
+| { success: true; transactionHash: `0x${string}`; chainId: number; chainName: string }
+| { success: false; error: string; code: string }
+```
+
+## Smart Account Methods
+
+### approveAndBurnUSDCUsingSmartAccount
+
+Bundle approve and burn into a single UserOperation.
+
+```ts
+const userOpHash = await bridge.approveAndBurnUSDCUsingSmartAccount(
+  "10.0", // amount
+  "0x...", // destination address
+  true, // use paymaster
+);
+```
+
+### waitForUserOperation
+
+Wait for a UserOperation to be confirmed.
+
+```ts
+const receipt = await bridge.waitForUserOperation(userOpHash, true);
+console.log("Tx hash:", receipt.receipt.transactionHash);
+```
+
+### getSrcSmartAccountAddress
+
+Get the smart account address on the source chain.
+
+```ts
+const smartAccountAddress = await bridge.getSrcSmartAccountAddress();
+```
+
+### getDestSmartAccountAddress
+
+Get the smart account address on the destination chain.
+
+```ts
+const smartAccountAddress = await bridge.getDestSmartAccountAddress();
+```
+
+## Utility Methods
+
+### getUSDCBalances
+
+Get USDC and native token balances on both chains.
+
+```ts
+const balances = await bridge.getUSDCBalances("external");
+
+console.log("Source USDC:", balances.srcUsdcBalance.formatted);
+console.log("Dest USDC:", balances.destUsdcBalance.formatted);
+console.log("Source ETH:", balances.srcNativeBalance.formatted);
+console.log("Dest ETH:", balances.destNativeBalance.formatted);
+```
+
+**Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `accountType` | `"external" \| "smart-account"` | Which account to check balances for |
+
+### getAddress
+
+Get the EOA address from the wallet client.
+
+```ts
+const address = await bridge.getAddress();
+```
+
+### getPublicClient
+
+Get a viem public client for a specific chain.
+
+```ts
+const publicClient = await bridge.getPublicClient(sepolia);
+const blockNumber = await publicClient.getBlockNumber();
+```
+
+## Helper Functions
+
+The package exports helper functions for RPC URL configuration:
+
+### getAlchemyRpcUrls
+
+Get Alchemy RPC URLs for all supported chains.
+
+```ts
+import { getAlchemyRpcUrls } from "@inj-sdk/cctp-bridge";
+
+const rpcUrls = getAlchemyRpcUrls({ apiKey: "your-api-key" });
+```
+
+### getPimlicoBundlerRpcUrls
+
+Get Pimlico bundler RPC URLs for smart account operations.
+
+```ts
+import { getPimlicoBundlerRpcUrls } from "@inj-sdk/cctp-bridge";
+
+const bundlerRpcUrls = getPimlicoBundlerRpcUrls();
+```

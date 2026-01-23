@@ -1,0 +1,276 @@
+# BridgeOrchestrator
+
+The `BridgeOrchestrator` class provides a resumable finite state machine (FSM) for managing CCTP bridge transactions with UI integration support.
+
+## Overview
+
+The orchestrator wraps `CctpBridge` with:
+
+- **State Machine** - Tracks progress through bridge steps
+- **Observer Pattern** - Subscribe to state changes for UI updates
+- **Persistence** - Saves state to storage for session resumption
+- **Error Recovery** - Resume from any step after failures
+
+## Bridge Steps
+
+```
+IDLE → APPROVED → BURNED → ATTESTED → COMPLETED
+       (standard only)
+```
+
+For smart account mode, `APPROVED` is skipped since approve and burn are bundled.
+
+| Step        | Description                                  |
+| ----------- | -------------------------------------------- |
+| `IDLE`      | Initial state, no action taken               |
+| `APPROVED`  | USDC approval completed (standard mode only) |
+| `BURNED`    | USDC burned on source chain                  |
+| `ATTESTED`  | Attestation received from Circle             |
+| `COMPLETED` | Mint completed on destination chain          |
+
+## Creating an Orchestrator
+
+### New Session
+
+```ts
+import {
+  BridgeOrchestrator,
+  LocalStorageRepository,
+} from "@inj-sdk/cctp-bridge";
+
+const storage = new LocalStorageRepository();
+
+const orchestrator = await BridgeOrchestrator.create({
+  bridge,
+  storage,
+  params: {
+    mode: "standard",
+    amount: "10.0",
+    destinationAddress: "0x...",
+    mintMode: "direct",
+  },
+});
+```
+
+### Constructor Parameters
+
+| Parameter                   | Type                            | Required | Description                                          |
+| --------------------------- | ------------------------------- | -------- | ---------------------------------------------------- |
+| `bridge`                    | `CctpBridge`                    | Yes      | Initialized CctpBridge instance                      |
+| `storage`                   | `StorageRepository`             | Yes      | Storage implementation for persistence               |
+| `params.mode`               | `"standard" \| "smart-account"` | Yes      | Execution mode                                       |
+| `params.amount`             | `string`                        | Yes      | Amount of USDC to bridge                             |
+| `params.destinationAddress` | `` `0x${string}` ``             | Yes      | Destination address                                  |
+| `params.mintMode`           | `"direct" \| "relayer"`         | No       | How to execute the mint (default: "relayer")         |
+| `params.usePaymaster`       | `boolean`                       | No       | Use paymaster for gas (smart account, default: true) |
+
+### Resume Existing Session
+
+```ts
+const orchestrator = await BridgeOrchestrator.resume({
+  bridge,
+  storage,
+  params: {
+    sessionId: "1234567890-abc123def",
+  },
+});
+
+if (!orchestrator) {
+  console.log("Session not found");
+}
+```
+
+## Executing the Flow
+
+### Basic Execution
+
+```ts
+await orchestrator.execute();
+```
+
+The `execute()` method is idempotent - it checks the current step and proceeds from there. Safe to call multiple times for retry after errors.
+
+### With UI Subscription
+
+```ts
+const unsubscribe = orchestrator.subscribe((state) => {
+  console.log("Step:", state.step);
+  console.log("Loading:", state.isLoading);
+
+  if (state.error) {
+    console.error("Error:", state.error);
+  }
+});
+
+await orchestrator.execute();
+
+unsubscribe();
+```
+
+## State Object
+
+The `BridgeState` object contains all transaction context:
+
+```ts
+interface BridgeState {
+  // Current progress
+  step: BridgeStep;
+  mode: "standard" | "smart-account";
+  mintMode: "direct" | "relayer";
+  isLoading: boolean;
+  error: string | null;
+  sessionId: string;
+
+  // Transaction context
+  amount: string;
+  destinationAddress: `0x${string}`;
+
+  // Step artifacts - Standard mode
+  approvalTxHash?: string;
+  burnTxHash?: string;
+
+  // Step artifacts - Smart account mode
+  userOpHash?: string;
+  userOpReceiptTxHash?: string;
+  usePaymaster?: boolean;
+
+  // Attestation data
+  attestation?: {
+    message: `0x${string}`;
+    attestation: `0x${string}`;
+  };
+
+  // Final step
+  mintTxHash?: string;
+
+  // Metadata
+  createdAt: number;
+  updatedAt: number;
+}
+```
+
+## Methods
+
+### subscribe
+
+Subscribe to state changes.
+
+```ts
+const unsubscribe = orchestrator.subscribe((state) => {
+  // Handle state update
+});
+
+// Later: cleanup
+unsubscribe();
+```
+
+### getState
+
+Get a frozen copy of the current state.
+
+```ts
+const state = orchestrator.getState();
+console.log(state.step);
+```
+
+### getSessionId
+
+Get the session ID for this orchestrator.
+
+```ts
+const sessionId = orchestrator.getSessionId();
+```
+
+### isComplete
+
+Check if the bridge flow is complete.
+
+```ts
+if (orchestrator.isComplete()) {
+  console.log("Bridge completed!");
+}
+```
+
+### hasError
+
+Check if there's an error that needs to be addressed.
+
+```ts
+if (orchestrator.hasError()) {
+  console.log("Error:", orchestrator.getState().error);
+}
+```
+
+### cancel
+
+Cancel the current session and remove from storage.
+
+```ts
+await orchestrator.cancel();
+```
+
+## React Integration Example
+
+```tsx
+import { useState, useEffect } from "react";
+import {
+  BridgeOrchestrator,
+  BridgeState,
+  BridgeStep,
+} from "@inj-sdk/cctp-bridge";
+
+function BridgeProgress({
+  orchestrator,
+}: {
+  orchestrator: BridgeOrchestrator;
+}) {
+  const [state, setState] = useState<BridgeState>(orchestrator.getState());
+
+  useEffect(() => {
+    return orchestrator.subscribe(setState);
+  }, [orchestrator]);
+
+  return (
+    <div>
+      <p>Step: {state.step}</p>
+      <p>Loading: {state.isLoading ? "Yes" : "No"}</p>
+      {state.error && <p style={{ color: "red" }}>Error: {state.error}</p>}
+      {state.step === BridgeStep.COMPLETED && (
+        <p>Mint TX: {state.mintTxHash}</p>
+      )}
+    </div>
+  );
+}
+```
+
+## Vue Integration Example
+
+```vue
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from "vue";
+import type { BridgeOrchestrator, BridgeState } from "@inj-sdk/cctp-bridge";
+
+const props = defineProps<{ orchestrator: BridgeOrchestrator }>();
+
+const state = ref<BridgeState>(props.orchestrator.getState());
+let unsubscribe: () => void;
+
+onMounted(() => {
+  unsubscribe = props.orchestrator.subscribe((newState) => {
+    state.value = newState;
+  });
+});
+
+onUnmounted(() => {
+  unsubscribe?.();
+});
+</script>
+
+<template>
+  <div>
+    <p>Step: {{ state.step }}</p>
+    <p>Loading: {{ state.isLoading ? "Yes" : "No" }}</p>
+    <p v-if="state.error" style="color: red">Error: {{ state.error }}</p>
+  </div>
+</template>
+```

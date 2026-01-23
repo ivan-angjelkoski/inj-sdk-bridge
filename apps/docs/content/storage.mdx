@@ -1,0 +1,156 @@
+# Storage
+
+The SDK provides storage implementations for persisting bridge session state. This enables resuming interrupted transactions.
+
+## StorageRepository Interface
+
+All storage implementations must satisfy this interface:
+
+```ts
+interface StorageRepository {
+  save(sessionId: string, state: BridgeState): Promise<void>;
+  load(sessionId: string): Promise<BridgeState | null>;
+  remove(sessionId: string): Promise<void>;
+  listSessions(): Promise<string[]>;
+}
+```
+
+## LocalStorageRepository
+
+Browser-based implementation using `localStorage`. Includes guards for SSR environments.
+
+```ts
+import { LocalStorageRepository } from "@inj-sdk/cctp-bridge";
+
+const storage = new LocalStorageRepository();
+
+// With custom prefix
+const storage = new LocalStorageRepository("my-app-bridge-");
+```
+
+### Constructor
+
+| Parameter | Type     | Default                  | Description                        |
+| --------- | -------- | ------------------------ | ---------------------------------- |
+| `prefix`  | `string` | `"cctp-bridge-session-"` | Key prefix for all stored sessions |
+
+### Additional Methods
+
+#### loadAllSessions
+
+Load all stored sessions with their full state. Useful for displaying a list of resumable sessions.
+
+```ts
+const sessions = await storage.loadAllSessions();
+
+sessions.forEach((state) => {
+  console.log(`Session ${state.sessionId}: ${state.step}`);
+});
+```
+
+#### clearAll
+
+Remove all stored sessions.
+
+```ts
+await storage.clearAll();
+```
+
+## MemoryStorageRepository
+
+In-memory implementation for testing or SSR contexts where `localStorage` is unavailable.
+
+```ts
+import { MemoryStorageRepository } from "@inj-sdk/cctp-bridge";
+
+const storage = new MemoryStorageRepository();
+```
+
+> **Note:** Data is lost when the process ends. Use only for testing or short-lived server-side operations.
+
+## Custom Storage Implementation
+
+You can implement your own storage for databases, IndexedDB, or other backends:
+
+```ts
+import type { StorageRepository, BridgeState } from "@inj-sdk/cctp-bridge";
+
+class IndexedDBStorageRepository implements StorageRepository {
+  private dbName = "cctp-bridge";
+  private storeName = "sessions";
+
+  private async getDB(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore(this.storeName, {
+          keyPath: "sessionId",
+        });
+      };
+    });
+  }
+
+  async save(sessionId: string, state: BridgeState): Promise<void> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.storeName, "readwrite");
+      tx.objectStore(this.storeName).put(state);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async load(sessionId: string): Promise<BridgeState | null> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.storeName, "readonly");
+      const request = tx.objectStore(this.storeName).get(sessionId);
+      request.onsuccess = () => resolve(request.result ?? null);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async remove(sessionId: string): Promise<void> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.storeName, "readwrite");
+      tx.objectStore(this.storeName).delete(sessionId);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async listSessions(): Promise<string[]> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.storeName, "readonly");
+      const request = tx.objectStore(this.storeName).getAllKeys();
+      request.onsuccess = () => resolve(request.result as string[]);
+      request.onerror = () => reject(request.error);
+    });
+  }
+}
+```
+
+## SSR Considerations
+
+`LocalStorageRepository` automatically detects SSR environments and becomes a no-op:
+
+- `save()` logs a warning and returns
+- `load()` returns `null`
+- `listSessions()` returns `[]`
+
+For SSR applications, consider:
+
+1. Using `MemoryStorageRepository` on the server
+2. Implementing a database-backed storage
+3. Hydrating from `LocalStorageRepository` on the client
+
+```ts
+const storage =
+  typeof window === "undefined"
+    ? new MemoryStorageRepository()
+    : new LocalStorageRepository();
+```
