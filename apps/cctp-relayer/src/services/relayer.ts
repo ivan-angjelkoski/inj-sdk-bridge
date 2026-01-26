@@ -9,11 +9,9 @@ import {
   type Transport,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import {
-  CCTP_CONTRACTS,
-  messageTransmitterAbi,
-  type RelayerErrorCode,
-} from "@inj-sdk/cctp-bridge";
+import { messageTransmitterAbi } from "../constants/abi";
+import { CCTP_CONTRACTS } from "../constants/cctp";
+import type { RelayerErrorCode } from "../types/relayer";
 import { getAlchemyRpcUrls, getChainById } from "../config/chains";
 import { parseCctpMessage, hashSourceAndNonce } from "../utils/message";
 

@@ -1,0 +1,6 @@
+export type RelayerErrorCode =
+  | "INVALID_REQUEST"
+  | "UNSUPPORTED_CHAIN"
+  | "ALREADY_PROCESSED"
+  | "EXECUTION_FAILED"
+  | "MISSING_CONFIG";
