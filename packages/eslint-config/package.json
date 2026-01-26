@@ -1,5 +1,5 @@
 {
-  "name": "@inj-sdk/eslint-config",
+  "name": "@injectivelabs/eslint-config",
   "version": "0.0.0",
   "type": "module",
   "private": true,

@@ -37,16 +37,16 @@ pnpm run test         # Run tests across all packages
 
 ```bash
 # Run all tests in cctp-bridge package
-pnpm --filter @inj-sdk/cctp-bridge test
+pnpm --filter @injectivelabs/cctp-bridge test
 
 # Run a specific test file
-pnpm --filter @inj-sdk/cctp-bridge exec vitest run test/bridge-flow.test.ts
+pnpm --filter @injectivelabs/cctp-bridge exec vitest run test/bridge-flow.test.ts
 
 # Run tests matching a pattern
-pnpm --filter @inj-sdk/cctp-bridge exec vitest run -t "should create"
+pnpm --filter @injectivelabs/cctp-bridge exec vitest run -t "should create"
 
 # Watch mode for a specific test
-pnpm --filter @inj-sdk/cctp-bridge exec vitest test/bridge-flow.test.ts
+pnpm --filter @injectivelabs/cctp-bridge exec vitest test/bridge-flow.test.ts
 ```
 
 ### Package-Specific Commands

@@ -16,7 +16,7 @@ The bridge flow consists of four main steps:
 Use the static `create` method to instantiate the bridge:
 
 ```ts
-import { CctpBridge } from "@inj-sdk/cctp-bridge";
+import { CctpBridge } from "@injectivelabs/cctp-bridge";
 import { createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { optimismSepolia, sepolia } from "viem/chains";
@@ -222,7 +222,7 @@ The package exports helper functions for RPC URL configuration:
 Get Alchemy RPC URLs for all supported chains.
 
 ```ts
-import { getAlchemyRpcUrls } from "@inj-sdk/cctp-bridge";
+import { getAlchemyRpcUrls } from "@injectivelabs/cctp-bridge";
 
 const rpcUrls = getAlchemyRpcUrls({ apiKey: "your-api-key" });
 ```
@@ -232,7 +232,7 @@ const rpcUrls = getAlchemyRpcUrls({ apiKey: "your-api-key" });
 Get Pimlico bundler RPC URLs for smart account operations.
 
 ```ts
-import { getPimlicoBundlerRpcUrls } from "@inj-sdk/cctp-bridge";
+import { getPimlicoBundlerRpcUrls } from "@injectivelabs/cctp-bridge";
 
 const bundlerRpcUrls = getPimlicoBundlerRpcUrls();
 ```

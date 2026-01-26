@@ -1,5 +1,5 @@
 {
-  "name": "@inj-sdk/typescript-config",
+  "name": "@injectivelabs/typescript-config",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",

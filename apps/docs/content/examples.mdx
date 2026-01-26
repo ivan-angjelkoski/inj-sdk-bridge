@@ -7,7 +7,7 @@ Complete code examples for common use cases.
 Bridge USDC using a standard wallet (EOA) with direct minting.
 
 ```ts
-import { CctpBridge } from "@inj-sdk/cctp-bridge";
+import { CctpBridge } from "@injectivelabs/cctp-bridge";
 import { createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { optimismSepolia, sepolia } from "viem/chains";
@@ -74,7 +74,7 @@ import {
   CctpBridge,
   getAlchemyRpcUrls,
   getPimlicoBundlerRpcUrls,
-} from "@inj-sdk/cctp-bridge";
+} from "@injectivelabs/cctp-bridge";
 import { createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { optimismSepolia, sepolia } from "viem/chains";
@@ -155,7 +155,7 @@ import {
   LocalStorageRepository,
   getAlchemyRpcUrls,
   getPimlicoBundlerRpcUrls,
-} from "@inj-sdk/cctp-bridge";
+} from "@injectivelabs/cctp-bridge";
 import { createWalletClient, custom } from "viem";
 import { optimismSepolia, sepolia } from "viem/chains";
 
@@ -289,7 +289,7 @@ Resume a bridge that was interrupted (e.g., page refresh).
 import {
   BridgeOrchestrator,
   LocalStorageRepository,
-} from "@inj-sdk/cctp-bridge";
+} from "@injectivelabs/cctp-bridge";
 
 async function resumeSession(bridge: CctpBridge, sessionId: string) {
   const storage = new LocalStorageRepository();
@@ -321,7 +321,7 @@ async function resumeSession(bridge: CctpBridge, sessionId: string) {
 Display all resumable sessions to the user.
 
 ```ts
-import { LocalStorageRepository, BridgeStep } from "@inj-sdk/cctp-bridge";
+import { LocalStorageRepository, BridgeStep } from "@injectivelabs/cctp-bridge";
 
 async function listPendingSessions() {
   const storage = new LocalStorageRepository();

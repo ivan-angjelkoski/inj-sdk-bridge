@@ -1,6 +1,6 @@
 # Injective Bridge CCTP
 
-Tools for bridging USDC between EVM chains with Circle CCTP. The `@inj-sdk/cctp-bridge` package exposes:
+Tools for bridging USDC between EVM chains with Circle CCTP. The `@injectivelabs/cctp-bridge` package exposes:
 
 - `CctpBridge` for the low-level approve/burn/attest/mint flow
 - `BridgeOrchestrator` for a resumable FSM with storage + observers
@@ -8,7 +8,7 @@ Tools for bridging USDC between EVM chains with Circle CCTP. The `@inj-sdk/cctp-
 ## Install
 
 ```
-pnpm add @inj-sdk/cctp-bridge viem permissionless
+pnpm add @injectivelabs/cctp-bridge viem permissionless
 ```
 
 ## Flow overview
@@ -41,7 +41,7 @@ graph LR
 This flow uses an EOA wallet and mints directly on the destination chain. The attestation step polls Circle and can take a few minutes.
 
 ```ts
-import { CctpBridge } from "@inj-sdk/cctp-bridge";
+import { CctpBridge } from "@injectivelabs/cctp-bridge";
 import { createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { optimismSepolia, sepolia } from "viem/chains";
@@ -88,7 +88,7 @@ import {
   CctpBridge,
   getAlchemyRpcUrls,
   getPimlicoBundlerRpcUrls,
-} from "@inj-sdk/cctp-bridge";
+} from "@injectivelabs/cctp-bridge";
 import { createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { optimismSepolia, sepolia } from "viem/chains";
@@ -145,7 +145,7 @@ import {
   BridgeOrchestrator,
   BridgeStep,
   LocalStorageRepository,
-} from "@inj-sdk/cctp-bridge";
+} from "@injectivelabs/cctp-bridge";
 
 const storage = new LocalStorageRepository();
 

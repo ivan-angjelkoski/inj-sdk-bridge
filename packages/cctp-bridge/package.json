@@ -1,5 +1,5 @@
 {
-  "name": "@inj-sdk/cctp-bridge",
+  "name": "@injectivelabs/cctp-bridge",
   "version": "1.0.0",
   "type": "module",
   "description": "",
@@ -23,8 +23,8 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@inj-sdk/eslint-config": "workspace:*",
-    "@inj-sdk/typescript-config": "workspace:*",
+    "@injectivelabs/eslint-config": "workspace:*",
+    "@injectivelabs/typescript-config": "workspace:*",
     "eslint": "^9.39.1",
     "permissionless": "^0.3.3",
     "tsup": "^8.5.1",

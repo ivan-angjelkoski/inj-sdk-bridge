@@ -7,7 +7,7 @@ This guide will help you install and set up the CCTP Bridge SDK in your project.
 Install the package and its peer dependencies:
 
 ```bash npm2yarn
-npm install @inj-sdk/cctp-bridge viem permissionless
+npm install @injectivelabs/cctp-bridge viem permissionless
 ```
 
 ## Environment Variables
@@ -48,7 +48,7 @@ const walletClient = createWalletClient({
 Create a bridge instance for your source and destination chains:
 
 ```ts
-import { CctpBridge } from "@inj-sdk/cctp-bridge";
+import { CctpBridge } from "@injectivelabs/cctp-bridge";
 
 const bridge = await CctpBridge.create({
   walletClient,
@@ -66,7 +66,7 @@ import {
   CctpBridge,
   getAlchemyRpcUrls,
   getPimlicoBundlerRpcUrls,
-} from "@inj-sdk/cctp-bridge";
+} from "@injectivelabs/cctp-bridge";
 
 const rpcUrls = getAlchemyRpcUrls({ apiKey: process.env.ALCHEMY_API_KEY! });
 const bundlerRpcUrls = getPimlicoBundlerRpcUrls();

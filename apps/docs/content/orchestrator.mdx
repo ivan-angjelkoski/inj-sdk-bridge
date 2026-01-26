@@ -36,7 +36,7 @@ For smart account mode, `APPROVED` is skipped since approve and burn are bundled
 import {
   BridgeOrchestrator,
   LocalStorageRepository,
-} from "@inj-sdk/cctp-bridge";
+} from "@injectivelabs/cctp-bridge";
 
 const storage = new LocalStorageRepository();
 
@@ -217,7 +217,7 @@ import {
   BridgeOrchestrator,
   BridgeState,
   BridgeStep,
-} from "@inj-sdk/cctp-bridge";
+} from "@injectivelabs/cctp-bridge";
 
 function BridgeProgress({
   orchestrator,
@@ -248,7 +248,7 @@ function BridgeProgress({
 ```vue
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
-import type { BridgeOrchestrator, BridgeState } from "@inj-sdk/cctp-bridge";
+import type { BridgeOrchestrator, BridgeState } from "@injectivelabs/cctp-bridge";
 
 const props = defineProps<{ orchestrator: BridgeOrchestrator }>();
 

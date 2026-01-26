@@ -13,9 +13,9 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
     "test": "turbo run test",
-    "dev:relayer": "turbo --filter=@inj-sdk/cctp-relayer dev",
+    "dev:relayer": "turbo --filter=@injectivelabs/cctp-relayer dev",
     "dev:bridge": "turbo --filter=bridge-nuxt dev",
-    "dev:all": "turbo --filter=@inj-sdk/cctp-relayer dev --filter=bridge-nuxt dev"
+    "dev:all": "turbo --filter=@injectivelabs/cctp-relayer dev --filter=bridge-nuxt dev"
   },
   "devDependencies": {
     "prettier": "^3.7.4",

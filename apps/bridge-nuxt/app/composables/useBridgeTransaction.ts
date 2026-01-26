@@ -17,7 +17,7 @@ import {
   type BridgeOrchestratorParams,
   type StorageRepository,
   type CctpBridge,
-} from "@inj-sdk/cctp-bridge";
+} from "@injectivelabs/cctp-bridge";
 
 /**
  * Options for the useBridgeTransaction composable.

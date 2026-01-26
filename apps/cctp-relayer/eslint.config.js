@@ -1,2 +1,2 @@
-import { config } from "@inj-sdk/eslint-config/base";
+import { config } from "@injectivelabs/eslint-config/base";
 export default config;

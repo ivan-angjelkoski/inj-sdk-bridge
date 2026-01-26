@@ -20,7 +20,7 @@ interface StorageRepository {
 Browser-based implementation using `localStorage`. Includes guards for SSR environments.
 
 ```ts
-import { LocalStorageRepository } from "@inj-sdk/cctp-bridge";
+import { LocalStorageRepository } from "@injectivelabs/cctp-bridge";
 
 const storage = new LocalStorageRepository();
 
@@ -61,7 +61,7 @@ await storage.clearAll();
 In-memory implementation for testing or SSR contexts where `localStorage` is unavailable.
 
 ```ts
-import { MemoryStorageRepository } from "@inj-sdk/cctp-bridge";
+import { MemoryStorageRepository } from "@injectivelabs/cctp-bridge";
 
 const storage = new MemoryStorageRepository();
 ```
@@ -73,7 +73,7 @@ const storage = new MemoryStorageRepository();
 You can implement your own storage for databases, IndexedDB, or other backends:
 
 ```ts
-import type { StorageRepository, BridgeState } from "@inj-sdk/cctp-bridge";
+import type { StorageRepository, BridgeState } from "@injectivelabs/cctp-bridge";
 
 class IndexedDBStorageRepository implements StorageRepository {
   private dbName = "cctp-bridge";

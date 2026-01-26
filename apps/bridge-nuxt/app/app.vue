@@ -5,7 +5,7 @@ import {
   getPimlicoBundlerRpcUrls,
   BridgeStep,
   type BridgeState,
-} from "@inj-sdk/cctp-bridge";
+} from "@injectivelabs/cctp-bridge";
 import {
   createWalletClient,
   custom,
